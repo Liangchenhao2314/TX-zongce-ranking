@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>管理后台 · 综合测评排名系统</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; background: #eef2f7; color: #223; min-height: 100vh; }
+.wrap { max-width: 1280px; margin: 0 auto; padding: 20px; }
+h1 { font-size: 20px; color: #1976D2; }
+h2 { font-size: 16px; margin-bottom: 12px; }
+/* 登录 */
+.login-box { max-width: 380px; margin: 12vh auto 0; background: #fff; border-radius: 12px; padding: 30px; box-shadow: 0 4px 20px rgba(25,118,210,.12); }
+.login-box h1 { text-align: center; margin-bottom: 6px; }
+.login-box .sub { text-align: center; color: #8a97a8; font-size: 12.5px; margin-bottom: 22px; }
+.login-box input { width: 100%; padding: 11px 12px; border: 1px solid #d5dde7; border-radius: 8px; font-size: 14px; margin-bottom: 14px; outline: none; }
+.login-box input:focus { border-color: #1976D2; }
+.btn { display: inline-block; border: none; cursor: pointer; border-radius: 8px; font-size: 14px; padding: 10px 18px; background: #1976D2; color: #fff; transition: .18s; }
+.btn:hover { background: #1565c0; transform: translateY(-1px); box-shadow: 0 3px 10px rgba(25,118,210,.3); }
+.btn:active { transform: translateY(0); }
+.btn.ghost { background: #fff; color: #1976D2; border: 1px solid #1976D2; }
+.btn.ghost:hover { background: #e8f1fb; }
+.btn.danger { background: #e53935; }
+.btn.danger:hover { background: #c62828; }
+.btn.sm { padding: 6px 12px; font-size: 12.5px; }
+/* 顶栏 */
+.top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; background:#fff; padding:14px 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(25,118,210,.08); }
+.tabs { display: flex; gap: 10px; margin-bottom: 18px; }
+.tab { padding: 9px 20px; border-radius: 20px; cursor: pointer; background: #fff; color: #5c6b80; font-size: 14px; border: 1px solid #dde5ee; transition:.18s; }
+.tab.active { background: #1976D2; color: #fff; border-color: #1976D2; }
+.card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(25,118,210,.06); margin-bottom: 16px; }
+.card h3 { font-size: 15px; margin-bottom: 14px; color: #334; }
+.row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+input[type=text], input[type=password], input[type=file] { padding: 9px 12px; border: 1px solid #d5dde7; border-radius: 8px; font-size: 14px; outline: none; }
+input[type=text]:focus, input[type=password]:focus { border-color: #1976D2; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { background: #f4f7fb; color: #5c6b80; font-weight: 600; padding: 9px 10px; text-align: left; }
+td { padding: 9px 10px; border-bottom: 1px solid #f0f3f7; }
+tr:hover td { background: #f8fbfe; }
+.msg { font-size: 12.5px; color: #e53935; margin-top: 8px; min-height: 16px; }
+.msg.ok { color: #2e7d32; }
+.stat { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; background: #e8f1fb; color: #1976D2; margin-right: 6px; }
+.muted { color: #8a97a8; font-size: 12.5px; }
+.hidden { display: none; }
+#preview { max-height: 320px; overflow: auto; border: 1px solid #e3eaf2; border-radius: 8px; margin: 10px 0; }
+.badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; margin-left:6px; }
+.badge.cur { background:#e8f5e9; color:#2e7d32; }
+.badge.old { background:#fdecea; color:#c62828; }
+</style>
+</head>
+<body>
+<!-- ============ 登录视图 ============ -->
+<div class="login-box" id="loginView">
+  <h1>管理后台</h1>
+  <div class="sub">综合测评排名系统 · 管理员入口</div>
+  <input type="password" id="pwd" placeholder="请输入管理员密码" onkeydown="if(event.key==='Enter')doLogin()">
+  <button class="btn" style="width:100%" onclick="doLogin()">登 录</button>
+  <div class="msg" id="loginMsg"></div>
+</div>
+
+<!-- ============ 主视图 ============ -->
+<div id="mainView" class="hidden">
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1 id="topTitle">管理后台</h1>
+        <div class="muted" id="topSub">综合测评排名系统</div>
+      </div>
+      <button class="btn ghost sm" onclick="logout()">退出登录</button>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="dm" onclick="switchTab('dm')">数据管理</div>
+      <div class="tab" data-tab="rec" onclick="switchTab('rec')">上传记录</div>
+      <div class="tab" data-tab="cfg" onclick="switchTab('cfg')">基础配置</div>
+    </div>
+
+    <!-- 数据管理 -->
+    <div id="tab-dm">
+      <div class="card">
+        <h3>上传新智育数据（成绩单）</h3>
+        <div class="muted" style="margin-bottom:10px">支持 .xlsx / .xls / .csv / .json 表格文件；上传后解析预览，确认后设为全站生效（访客打开即看到新数据），原文件同时保存到上传记录</div>
+        <div class="row">
+          <input type="file" id="zyFile" accept=".xlsx,.xls,.csv,.json">
+          <button class="btn" onclick="parseZy()">解析预览</button>
+        </div>
+        <div id="zyPreview"></div>
+        <div class="row">
+          <input type="text" id="zyRemark" placeholder="备注（可选），如：2024级智育数据 v2" style="flex:1">
+          <button class="btn" onclick="confirmZy()">确认并设为全站生效</button>
+        </div>
+        <div class="msg" id="zyMsg"></div>
+      </div>
+
+      <div class="card">
+        <h3>上传新综测数据（综测表）</h3>
+        <div class="muted" style="margin-bottom:10px">支持 .xlsx / .xls / .csv / .json（综测表格式：班级/学号/姓名/各科成绩/智育平均分/综测总分/德智体美劳加分）；.json 为最佳格式</div>
+        <div class="row">
+          <input type="file" id="zcFile" accept=".xlsx,.xls,.csv,.json">
+          <button class="btn" onclick="parseZc()">解析预览</button>
+        </div>
+        <div id="zcPreview"></div>
+        <div class="row">
+          <input type="text" id="zcRemark" placeholder="备注（可选）" style="flex:1">
+          <button class="btn" onclick="confirmZc()">确认并设为全站生效</button>
+        </div>
+        <div class="msg" id="zcMsg"></div>
+      </div>
+
+      <div class="card">
+        <h3>当前生效版本</h3>
+        <div id="versionInfo"><span class="muted">加载中…</span></div>
+        <div style="margin-top:10px">
+          <button class="btn ghost sm" onclick="rollback()">回滚到上一版本</button>
+          <span class="muted" style="margin-left:10px" id="histInfo"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 上传记录 -->
+    <div id="tab-rec" class="hidden">
+      <div class="card">
+        <h3>访客 / 管理员上传的源文件</h3>
+        <div class="muted" style="margin-bottom:10px">文件以原格式保存，可直接下载（不转换、不改名）</div>
+        <table>
+          <thead><tr><th>文件名</th><th>类型</th><th>大小</th><th>时间</th><th>备注</th><th>操作</th></tr></thead>
+          <tbody id="recBody"><tr><td colspan="6" class="muted">加载中…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 基础配置 -->
+    <div id="tab-cfg" class="hidden">
+      <div class="card">
+        <h3>页面配置</h3>
+        <div class="row"><span style="width:90px">页面标题</span><input type="text" id="cfgTitle" style="flex:1"></div>
+        <div class="row"><span style="width:90px">副标题</span><input type="text" id="cfgSub" style="flex:1"></div>
+        <div class="row"><button class="btn" onclick="saveCfg()">保存配置</button><span class="msg" id="cfgMsg"></span></div>
+      </div>
+      <div class="card">
+        <h3>修改管理员密码</h3>
+        <div class="row"><span style="width:90px">新密码</span><input type="password" id="newPwd" style="flex:1" placeholder="至少4位"></div>
+        <div class="row"><button class="btn" onclick="changePwd()">修改密码</button><span class="msg" id="pwdMsg"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var TOKEN = localStorage.getItem('zcv2_admin_token') || '';
+
+/* ============ 基础 ============ */
+function api(path, opts) {
+  opts = opts || {};
+  var h = { 'Content-Type': 'application/json' };
+  var q = (path.indexOf('?') >= 0 ? '&' : '?') + 'token=' + encodeURIComponent(TOKEN);
+  var url = path + q;
+  if (opts.form) { delete h['Content-Type']; return fetch(url, { method: opts.method || 'POST', body: opts.form }).then(function(r){return r.json();}); }
+  return fetch(url, { method: opts.method || 'GET', headers: h, body: opts.body ? JSON.stringify(opts.body) : undefined }).then(function(r){return r.json();});
+}
+function msg(el, text, ok) { el.textContent = text; el.className = 'msg' + (ok ? ' ok' : ''); }
+function fmtSize(n) { if (n > 1048576) return (n/1048576).toFixed(2) + ' MB'; if (n > 1024) return (n/1024).toFixed(1) + ' KB'; return n + ' B'; }
+
+/* ============ 登录 ============ */
+function doLogin() {
+  var p = document.getElementById('pwd').value.trim();
+  if (!p) { msg(document.getElementById('loginMsg'), '请输入密码'); return; }
+  fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: p }) })
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (d.ok && d.token) {
+        TOKEN = d.token; localStorage.setItem('zcv2_admin_token', d.token);
+        document.getElementById('loginView').classList.add('hidden');
+        document.getElementById('mainView').classList.remove('hidden');
+        loadAll();
+      } else {
+        msg(document.getElementById('loginMsg'), d.error || '登录失败');
+      }
+    }).catch(function(){ msg(document.getElementById('loginMsg'), '网络错误，请重试'); });
+}
+function logout() { TOKEN = ''; localStorage.removeItem('zcv2_admin_token'); location.reload(); }
+function switchTab(t) {
+  document.querySelectorAll('.tab').forEach(function(x){ x.classList.toggle('active', x.getAttribute('data-tab') === t); });
+  ['dm','rec','cfg'].forEach(function(k){ document.getElementById('tab-' + k).classList.toggle('hidden', k !== t); });
+  if (t === 'rec') loadRecords();
+  if (t === 'cfg') loadCfg();
+}
+function loadAll() {
+  api('/api/admin/builtin').then(function(d){ if (d.ok) renderVersion(d); });
+  api('/api/admin/config').then(function(d){ if (d.ok) { document.getElementById('cfgTitle').value = d.config.title || ''; document.getElementById('cfgSub').value = d.config.subtitle || ''; } });
+}
+
+/* ============ 版本 ============ */
+function renderVersion(d) {
+  var cur = d.current || {};
+  var h = document.getElementById('versionInfo');
+  h.innerHTML = '<span class="stat">当前：' + (cur.version || '内置') + '</span><span class="muted">更新于 ' + (cur.updatedAt || '-') + '</span>';
+  var hist = d.history || [];
+  document.getElementById('histInfo').textContent = hist.length ? ('历史 ' + hist.length + ' 个版本') : '';
+}
+function rollback() {
+  api('/api/admin/builtin/rollback', { method: 'POST', body: {} }).then(function(d){
+    api('/api/admin/builtin').then(function(d2){ if (d2.ok) renderVersion(d2); });
+  });
+}
+
+/* ============ 数据管理：SheetJS 解析 ============ */
+function readSheet(file, cb) {
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+      var ws = wb.Sheets[wb.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      cb(rows);
+    } catch (err) { cb(null, String((err && err.message) || err)); }
+  };
+  reader.onerror = function() { cb(null, '读取文件失败'); };
+  reader.readAsArrayBuffer(file);
+}
+function uploadOrigin(file, type) {
+  try {
+    var fd = new FormData();
+    fd.append('file', file);
+    fd.append('type', type);
+    fetch('/api/upload', { method: 'POST', body: fd }).catch(function(){});
+  } catch (e) {}
+}
+
+function clsNorm(s) {
+  return String(s || '').replace(/班\s*$/, '').replace(/（\d+）$/, '').replace(/\(\d+\)$/, '').trim();
+}
+function clsToGrade(cls) {
+  var m = String(cls || '').match(/(20\d{2})级/);
+  return m ? m[1] + '级' : '';
+}
+function clsToMajor(cls) {
+  var m = String(cls || '').match(/([\u4e00-\u9fa5A-Za-z0-9]+)23/);
+  if (m && m[1].indexOf('智造') >= 0) { return '智能制造工程（本）'; }
+  return '未知专业';
+}
+
+/* ---------- 二、智育引擎（成绩单） ---------- */
+var CN_NUM = { "\u4e00": "1", "\u4e8c": "2", "\u4e09": "3", "\u56db": "4", "\u4e94": "5", "\u516d": "6", "\u4e03": "7", "\u516b": "8", "\u4e5d": "9", "\u5341": "10" };
+var MAP95 = { '\u4f18': 95, '\u826f': 85, '\u4e2d': 75, '\u53ca\u683c': 65, '\u4e0d\u53ca\u683c': 40, '\u5408\u683c': 65 };
+var TEMPLATE_COURSES = [
+  ["\u5f62\u52bf\u4e0e\u653f\u7b56(5)", 0.5], ["\u4e2d\u56fd\u8fd1\u73b0\u4ee3\u53f2\u7eb2\u8981", 3], ["\u5927\u5b66\u82f1\u8bed(\u4e00)", 3], ["\u5927\u5b66\u751f\u5b89\u5168\u6559\u80b2(5)", 0.25],
+  ["RFID\u6280\u672f\u4e0e\u5e94\u7528", 2.5], ["\u4f20\u611f\u5668\u4e0e\u68c0\u6d4b\u6280\u672f", 3], ["\u673a\u68b0\u63a7\u5236\u5de5\u7a0b\u57fa\u7840", 3], ["\u667a\u80fd\u5236\u9020\u5de5\u7a0b\u5bfc\u8bba", 0.5],
+  ["Python\u7a0b\u5e8f\u8bbe\u8ba1", 3], ["\u7535\u6c14\u63a7\u5236\u4e0ePLC", 3], ["\u9ad8\u7b49\u6570\u5b66B", 5], ["\u5f62\u52bf\u4e0e\u653f\u7b56(6)", 0.5],
+  ["\u9a6c\u514b\u601d\u4e3b\u4e49\u57fa\u672c\u539f\u7406", 3], ["\u5927\u5b66\u82f1\u8bed(2)", 3], ["\u7efc\u5408\u82f1\u8bed\u5b9e\u52a1", 1], ["\u751f\u6daf\u53d1\u5c55\u4e0e\u5c31\u4e1a\u6307\u5bfc(\u4e0b)", 1],
+  ["\u5927\u5b66\u751f\u5b89\u5168\u6559\u80b2(6)", 0.3], ["\u81ea\u52a8\u5316\u751f\u4ea7\u7ebf\u7684\u5b89\u88c5\u4e0e\u8c03\u8bd5\u5b9e\u8bad", 2], ["\u5de5\u4e1a\u673a\u5668\u4eba\u6280\u672f\u53ca\u5e94\u7528", 3],
+  ["\u4eba\u673a\u754c\u9762\u53ca\u7ec4\u6001\u6280\u672f", 2], ["\u667a\u80fd\u5236\u9020\u6267\u884c\u7cfb\u7edf", 1.5], ["\u6982\u7387\u8bba\u4e0e\u6570\u7406\u7edf\u8ba1", 3], ["\u7ebf\u6027\u4ee3\u6570", 2.5],
+  ["\u6570\u636e\u5e93\u6280\u672f\u4e0e\u5e94\u7528", 2], ["\u6587\u732e\u68c0\u7d22\u4e0e\u79d1\u6280\u5199\u4f5c", 1]
+];
+/* 智育引擎状态（成绩单解析产物） */
+var ZY_VERIFY_POOL = {};  /* 核验明细：name|stid|cls -> {courses:{课程:{v,raw,note}}, drops:{}} */
+var ZY_GM_LIST = {};      /* 班级 -> 必修课表（核验明细用） */
+var ZY_CLS_CRED = {};     /* 班级|课程 -> 学分（成绩单 Q 列） */
+var ZY_GMPOOL = {};       /* 年级|专业 -> 课程池（排名用并集） */
+var ZY_CLS_GM = {};       /* 班级 -> 年级|专业 */
+var ZY_CLS_N = {};        /* 班级 -> 人数 */
+var ZY_CLS_CNT = {};      /* 班级 -> {课程: 修读人数} */
+var ZY_POOL = [];         /* 智育学生池 */
+var ZY_SOURCE = 'builtin';
+
+function normCn(s) {
+  s = String(s).trim().replace(/\uff08/g, "(").replace(/\uff09/g, ")").replace(/\s+/g, "");
+  for (var k in CN_NUM) {
+    if (CN_NUM.hasOwnProperty(k)) { s = s.split("(" + k + ")").join("(" + CN_NUM[k] + ")"); }
+  }
+  return s;
+}
+function matchTemplate(cmap, cn) {
+  var nc = normCn(cn);
+  if (cmap.hasOwnProperty(nc)) { return cmap[nc]; }
+  for (var k in cmap) {
+    if (cmap.hasOwnProperty(k)) {
+      if ((nc.length >= 2 && nc.indexOf(k) >= 0) || (k.length >= 2 && k.indexOf(nc) >= 0)) { return cmap[k]; }
+    }
+  }
+  return null;
+}
+function toVal(v) {
+  var f = parseFloat(v);
+  if (!isNaN(f)) { return f; }
+  var m = MAP95[String(v).trim()];
+  return (m !== undefined) ? m : null;
+}
+function isTranscript(rows) {
+  for (var i = 0; i < Math.min(rows.length, 12); i++) {
+    var t = rows[i].join(',').toLowerCase();
+    if (t.indexOf('\u603b\u8bc4') >= 0 || t.indexOf('\u7ee9\u70b9') >= 0) { return true; }
+  }
+  return false;
+}
+/* 成绩单聚合：按人 Σ(总评×学分)/Σ学分；识别 年级/专业/班级；按第15/16条定分 */
+function rowsToTranscript(rows) {
+  ZY_VERIFY_POOL = {};
+  ZY_GM_LIST = {};
+  ZY_CLS_CRED = {};
+  var head = -1, nameCol = -1, clsCol = -1, courseCol = -1, scoreCol = -1, stidCol = -1, majorCol = -1, gradeCol = -1, creditCol = -1, examCol = -1, deferCol = -1, bzCol = -1;
+  for (var r = 0; r < Math.min(rows.length, 12); r++) {
+    var line = rows[r];
+    var lower = line.join(',').toLowerCase();
+    if (lower.indexOf('\u59d3\u540d') < 0) { continue; }
+    head = r;
+    for (var c = 0; c < line.length; c++) {
+      var cl = String(line[c]).trim().toLowerCase();
+      if (nameCol < 0 && (cl === '\u59d3\u540d' || cl === 'name')) { nameCol = c; }
+      else if (stidCol < 0 && (cl === '\u5b66\u53f7' || cl === 'studentid' || cl === 'id')) { stidCol = c; }
+      else if (majorCol < 0 && (cl === '\u4e13\u4e1a' || cl === 'major')) { majorCol = c; }
+      else if (gradeCol < 0 && (cl === '\u5e74\u7ea7' || cl === 'grade')) { gradeCol = c; }
+      else if (clsCol < 0 && (cl === '\u73ed\u7ea7' || cl === 'class' || cl.indexOf('\u73ed') >= 0)) { clsCol = c; }
+      else if (courseCol < 0 && (cl === '\u8bfe\u7a0b\u540d' || cl === '\u8bfe\u7a0b\u540d\u79f0')) { courseCol = c; }
+      else if (creditCol < 0 && (cl === '\u5b66\u5206' || cl === 'credit')) { creditCol = c; }
+      else if (scoreCol < 0 && (cl === '\u603b\u8bc4' || cl === '\u6210\u7ee9' || cl === '\u603b\u5206')) { scoreCol = c; }
+      else if (examCol < 0 && cl.indexOf('\u8003\u8bd5\u6027\u8d28') >= 0) { examCol = c; }
+      else if (deferCol < 0 && cl.indexOf('\u7f13\u8003') >= 0) { deferCol = c; }
+      else if (bzCol < 0 && cl === '\u5907\u6ce8') { bzCol = c; }
+    }
+    break;
+  }
+  if (nameCol < 0 || scoreCol < 0 || courseCol < 0) { return []; }
+  var byName = {};
+  var clsSet = {}, clsCrs = {}, byAgg = {};
+  for (var i = head + 1; i < rows.length; i++) {
+    var row = rows[i];
+    var name = String(row[nameCol] != null ? row[nameCol] : '').trim();
+    if (!name) { continue; }
+    var cname = String(row[courseCol] != null ? row[courseCol] : '').trim();
+    if (!cname) { continue; }
+    if (cname.indexOf('\u6155\u8bfe') >= 0) { continue; }
+    var stid = stidCol >= 0 ? String(row[stidCol] != null ? row[stidCol] : '').trim() : '';
+    var clsV = (clsCol >= 0 ? String(row[clsCol] != null ? row[clsCol] : '').trim() : '\u672a\u77e5\u73ed\u7ea7');
+    var majorV = (majorCol >= 0 ? String(row[majorCol] != null ? row[majorCol] : '').trim() : '\u672a\u6807\u6ce8\u4e13\u4e1a');
+    var gradeV = (gradeCol >= 0 ? String(row[gradeCol] != null ? row[gradeCol] : '').trim() : '');
+    var examS = (examCol >= 0 ? String(row[examCol] != null ? row[examCol] : '').trim() : '');
+    var deferS = (deferCol >= 0 ? String(row[deferCol] != null ? row[deferCol] : '').trim() : '');
+    var bzS = (bzCol >= 0 ? String(row[bzCol] != null ? row[bzCol] : '').trim() : '');
+    var isZeroCase = (bzS.indexOf('\u4f5c\u5f0a') >= 0 || bzS.indexOf('\u7f3a\u8003') >= 0 || bzS.indexOf('\u53d6\u6d88') >= 0);
+    var isMxPe = (bzS.indexOf('\u514d\u4fee') >= 0 || bzS.indexOf('\u514d\u8bd5') >= 0) && cname.indexOf('\u4f53\u80b2') >= 0;
+    var score = toVal(row[scoreCol]);
+    if (isMxPe) { score = 65; }
+    if (score === null && !isZeroCase) { continue; }
+    if (score === null && isZeroCase) { score = 0; }
+    var key = name + '|' + (stid || clsV);
+    var nc2 = normCn(cname);
+    if (!byName[key]) {
+      byName[key] = { name: name, cls: clsV, stid: stid, major: majorV, grade: gradeV, courses: {} };
+    }
+    if (!ZY_VERIFY_POOL[key]) {
+      ZY_VERIFY_POOL[key] = { name: name, cls: clsV, stid: stid, major: majorV, grade: gradeV, courses: {}, drops: {} };
+    }
+    if (!clsSet[clsV]) { clsSet[clsV] = {}; }
+    clsSet[clsV][stid || name] = true;
+    if (!ZY_CLS_GM[clsV]) { ZY_CLS_GM[clsV] = gradeV + '|' + majorV; }
+    if (!clsCrs[clsV]) { clsCrs[clsV] = {}; }
+    clsCrs[clsV][nc2] = (clsCrs[clsV][nc2] || 0) + 1;
+    var ck = clsV + '|' + nc2;
+    if (!(ck in ZY_CLS_CRED) && creditCol >= 0) {
+      var crV = parseFloat(row[creditCol]);
+      ZY_CLS_CRED[ck] = isNaN(crV) ? 0 : crV;
+    }
+    if (!byAgg[key]) { byAgg[key] = {}; }
+    if (!byAgg[key][nc2]) { byAgg[key][nc2] = []; }
+    byAgg[key][nc2].push({ score: score, exam: examS, defer: deferS, bz: bzS, raw: row[scoreCol], mx: isMxPe });
+  }
+  for (var ka in byAgg) {
+    if (!byAgg.hasOwnProperty(ka)) { continue; }
+    var crs = byName[ka].courses;
+    var vc = ZY_VERIFY_POOL[ka].courses;
+    var dr = ZY_VERIFY_POOL[ka].drops;
+    byName[ka].fail = !!byName[ka].fail;
+    byName[ka].cheat = !!byName[ka].cheat;
+    for (var nca in byAgg[ka]) {
+      if (!byAgg[ka].hasOwnProperty(nca)) { continue; }
+      var lst = byAgg[ka][nca];
+      var isRe = false, isZero = false, isBuf = false, isHuan = false;
+      var normalScore = null, bufScore = null, huanScore = null, lastRaw = lst[lst.length - 1].raw;
+      for (var li = 0; li < lst.length; li++) {
+        var it = lst[li];
+        if (it.exam.indexOf('\u91cd\u4fee') >= 0) { isRe = true; }
+        if (it.bz.indexOf('\u4f5c\u5f0a') >= 0 || it.bz.indexOf('\u7f3a\u8003') >= 0 || it.bz.indexOf('\u53d6\u6d88') >= 0) { isZero = true; }
+        if (it.exam.indexOf('\u8865\u8003') >= 0) { isBuf = true; bufScore = it.score; }
+        if (it.defer.indexOf('\u662f') >= 0) { isHuan = true; huanScore = it.score; }
+        if (it.exam.indexOf('\u6b63\u5e38') >= 0 && normalScore === null) { normalScore = it.score; }
+      }
+      if (isRe) {
+        byName[ka].rebuild = true;
+        delete crs[nca];
+        dr[nca] = true;
+        continue;
+      }
+      var isMxPe2 = false;
+      for (var li2 = 0; li2 < lst.length; li2++) { if (lst[li2].mx) { isMxPe2 = true; break; } }
+      var finalV = null, note = '';
+      if (isZero) {
+        finalV = 0; byName[ka].cheat = true;
+        var zr = '\u4f5c\u5f0a';
+        for (var lz = 0; lz < lst.length; lz++) {
+          if (lst[lz].bz.indexOf('\u7f3a\u8003') >= 0) { zr = '\u7f3a\u8003'; }
+          else if (lst[lz].bz.indexOf('\u53d6\u6d88') >= 0) { zr = '\u53d6\u6d88\u8003\u8bd5\u8d44\u683c'; }
+          else if (lst[lz].bz.indexOf('\u8fdd\u7eaa') >= 0) { zr = '\u8fdd\u7eaa'; }
+        }
+        note = zr + '\uff0c\u8be5\u8bfe\u7a0b\u6210\u7ee9\u63090\u5206\u8ba1\uff08\u7b2c16\u6761\uff09';
+      }
+      else if (isBuf && normalScore !== null) { finalV = normalScore; note = '\u8865\u8003\uff0c\u6309\u8865\u8003\u524d\u539f\u59cb\u5206' + normalScore + '\u8ba1\uff08\u7b2c16\u6761\uff09'; }
+      else if (isBuf) { finalV = bufScore; note = '\u8865\u8003\uff08\u65e0\u539f\u59cb\u5206\u8bb0\u5f55\uff0c\u6309\u8865\u8003\u5206' + bufScore + '\u8ba1\uff09'; }
+      else if (isHuan) { finalV = huanScore; note = '\u7f13\u8003\uff08\u7ecf\u5ba1\u6279\uff09\uff0c\u6309\u7f13\u8003\u6210\u7ee9' + huanScore + '\u8ba1'; }
+      else if (normalScore !== null) { finalV = normalScore; }
+      else { finalV = lst[0].score; }
+      if (isMxPe2 && !note) { note = '\u4f53\u80b2\u8bfe\u514d\u4fee\uff0c\u630965\u5206\u5408\u683c\u8ba1\uff08\u7279\u522b\u8bf4\u660e\u00b7\u4f53\u80b2\uff09'; }
+      crs[nca] = finalV;
+      if (finalV !== null && finalV < 60 && !isZero) { byName[ka].fail = true; }
+      if (note) { vc[nca] = { v: finalV, raw: lastRaw, note: note }; }
+      else if (typeof lastRaw === 'string' && lastRaw in MAP95) { vc[nca] = { v: finalV, raw: lastRaw, grade: true }; }
+      else { vc[nca] = { v: finalV, raw: lastRaw }; }
+    }
+  }
+  for (var ck2 in clsSet) {
+    if (!clsSet.hasOwnProperty(ck2)) { continue; }
+    var nS = 0;
+    for (var kk in clsSet[ck2]) { if (clsSet[ck2].hasOwnProperty(kk)) { nS++; } }
+    var arr = [];
+    if (clsCrs[ck2]) {
+      for (var cc in clsCrs[ck2]) {
+        if (clsCrs[ck2].hasOwnProperty(cc) && clsCrs[ck2][cc] / nS >= 0.8) { arr.push(cc); }
+      }
+    }
+    arr.sort();
+    ZY_GM_LIST[ck2] = arr;
+    ZY_CLS_N[ck2] = nS;
+    ZY_CLS_CNT[ck2] = clsCrs[ck2] || {};
+  }
+  ZY_GMPOOL = {};
+  for (var ck3 in ZY_GM_LIST) {
+    if (!ZY_GM_LIST.hasOwnProperty(ck3)) { continue; }
+    var gmk3 = ZY_CLS_GM[ck3];
+    if (!gmk3) { continue; }
+    if (!ZY_GMPOOL[gmk3]) { ZY_GMPOOL[gmk3] = {}; }
+    for (var cc3 = 0; cc3 < ZY_GM_LIST[ck3].length; cc3++) {
+      ZY_GMPOOL[gmk3][ZY_GM_LIST[ck3][cc3]] = true;
+    }
+  }
+  for (var gk3 in ZY_GMPOOL) {
+    if (ZY_GMPOOL.hasOwnProperty(gk3)) { ZY_GMPOOL[gk3] = Object.keys(ZY_GMPOOL[gk3]).sort(); }
+  }
+  var out = [];
+  for (var k2 in byName) {
+    if (byName.hasOwnProperty(k2)) {
+      var d = byName[k2];
+      var tot = 0, w = 0;
+      var carr = (creditCol >= 0 && ZY_GMPOOL[d.grade + '|' + d.major]) ? ZY_GMPOOL[d.grade + '|' + d.major] : null;
+      if (carr && carr.length) {
+        for (var t5 = 0; t5 < carr.length; t5++) {
+          var v5 = d.courses[carr[t5]];
+          if (v5 !== undefined && v5 !== null) {
+            var cr5 = ZY_CLS_CRED[d.cls + '|' + carr[t5]];
+            if (!cr5) { cr5 = 0; }
+            tot += v5 * cr5;
+            w += cr5;
+          }
+        }
+      } else {
+        for (var t = 0; t < TEMPLATE_COURSES.length; t++) {
+          var v = matchTemplate(d.courses, TEMPLATE_COURSES[t][0]);
+          if (v !== null) { tot += v * TEMPLATE_COURSES[t][1]; w += TEMPLATE_COURSES[t][1]; }
+        }
+      }
+      out.push({ name: d.name, cls: d.cls, stid: d.stid || '', major: d.major || '', grade: d.grade || '', gpa: w > 0 ? Math.round(tot / w * 100000) / 100000 : 0, fail: !!d.fail, cheat: !!d.cheat, rebuild: !!d.rebuild });
+    }
+  }
+  return out;
+}
+/* 直接分数 CSV（姓名, 班级, 智育平均分） */
+function rowsToDirect(rows) {
+  var head = -1, nameCol = 0, clsCol = 1, gpaCol = 2, stidCol = -1, majorCol = -1, gradeCol = -1;
+  for (var r = 0; r < Math.min(rows.length, 10); r++) {
+    var line = rows[r];
+    var lower = line.join(',').toLowerCase();
+    if (lower.indexOf('\u59d3\u540d') < 0) { continue; }
+    head = r;
+    nameCol = clsCol = gpaCol = -1;
+    for (var c = 0; c < line.length; c++) {
+      var cl = String(line[c]).trim().toLowerCase();
+      if (nameCol < 0 && (cl === '\u59d3\u540d' || cl === 'name')) { nameCol = c; }
+      else if (stidCol < 0 && (cl === '\u5b66\u53f7' || cl === 'studentid' || cl === 'id')) { stidCol = c; }
+      else if (majorCol < 0 && (cl === '\u4e13\u4e1a' || cl === 'major')) { majorCol = c; }
+      else if (gradeCol < 0 && (cl === '\u5e74\u7ea7' || cl === 'grade')) { gradeCol = c; }
+      else if (clsCol < 0 && (cl === '\u73ed\u7ea7' || cl === 'class' || cl === '\u4e13\u4e1a')) { clsCol = c; }
+      else if (gpaCol < 0 && (cl.indexOf('\u667a\u80b2') >= 0 || cl.indexOf('\u5e73\u5747') >= 0 || cl === 'gpa')) { gpaCol = c; }
+    }
+    break;
+  }
+  if (nameCol < 0) { nameCol = 0; }
+  if (clsCol < 0) { clsCol = 1; }
+  if (gpaCol < 0) { gpaCol = 2; }
+  var start = (head >= 0) ? head + 1 : 0;
+  var out = [];
+  for (var i = start; i < rows.length; i++) {
+    var row = rows[i];
+    var name = String(row[nameCol] != null ? row[nameCol] : '').trim();
+    if (!name) { continue; }
+    var gpa = parseFloat(row[gpaCol]);
+    if (isNaN(gpa)) { continue; }
+    var clsV = String(row[clsCol] != null ? row[clsCol] : '').trim() || '\u672a\u77e5\u73ed\u7ea7';
+    var majorV = (majorCol >= 0 ? String(row[majorCol] != null ? row[majorCol] : '').trim() : '');
+    var gradeV = (gradeCol >= 0 ? String(row[gradeCol] != null ? row[gradeCol] : '').trim() : '');
+    var stid = stidCol >= 0 ? String(row[stidCol] != null ? row[stidCol] : '').trim() : '';
+    out.push({ name: name, cls: clsV, stid: stid, major: majorV, grade: gradeV, gpa: gpa });
+  }
+  return out;
+}
+
+/* 包装：与主看板同口径解析（成绩单长表→聚合；纯分数表→直读） */
+function parseZyRows(rows) {
+  if (!rows || rows.length < 2) { return { error: '表格为空或行数不足' }; }
+  var st;
+  try {
+    st = isTranscript(rows) ? rowsToTranscript(rows) : rowsToDirect(rows);
+  } catch (e) { return { error: '解析失败：' + String((e && e.message) || e) }; }
+  if (!st || !st.length) { return { error: '未解析到学生数据' }; }
+  st.sort(function (a, b) { return b.gpa - a.gpa; });
+  return { students: st };
+}
+
+function parseZy() {
+  var f = document.getElementById('zyFile').files[0];
+  if (!f) { msg(document.getElementById('zyMsg'), '请先选择文件'); return; }
+  var ext = f.name.toLowerCase().split('.').pop();
+  if (ext === 'json') {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        var d = JSON.parse(e.target.result);
+        if (!Array.isArray(d)) throw new Error('JSON 必须是学生数组');
+        window.__zyData = d;
+        showZyPreview(d);
+      } catch (err) { msg(document.getElementById('zyMsg'), 'JSON 解析失败：' + err.message); }
+    };
+    reader.readAsText(f);
+    return;
+  }
+  readSheet(f, function(rows, err) {
+    if (err) { msg(document.getElementById('zyMsg'), err); return; }
+    var res = parseZyRows(rows);
+    if (res.error) { msg(document.getElementById('zyMsg'), res.error); return; }
+    window.__zyData = res.students;
+    showZyPreview(res.students);
+  });
+}
+function showZyPreview(st) {
+  if (!Array.isArray(st)) { st = []; }
+  var nf = st.filter(function(s){ return s.fail; }).length;
+  var nc = st.filter(function(s){ return s.cheat; }).length;
+  var nr = st.filter(function(s){ return s.rebuild; }).length;
+  var html = '<div style="margin:8px 0"><span class="stat">共 ' + st.length + ' 人</span><span class="stat">挂科 ' + nf + '</span><span class="stat">违纪/缺考 ' + nc + '</span><span class="stat">重修 ' + nr + '</span></div>';
+  html += '<table id="preview"><thead><tr><th>排名</th><th>姓名</th><th>班级</th><th>智育平均分</th><th>标记</th></tr></thead><tbody>';
+  st.slice(0, 10).forEach(function(s, i) {
+    var tag = (s.fail ? '挂科 ' : '') + (s.cheat ? '违纪/缺考 ' : '') + (s.rebuild ? '重修 ' : '');
+    html += '<tr><td>' + (i + 1) + '</td><td>' + s.name + '</td><td>' + s.cls + '</td><td>' + (typeof s.gpa === 'number' ? s.gpa.toFixed(2) : Number(s.gpa || 0).toFixed(2)) + '</td><td>' + tag + '</td></tr>';
+  });
+  if (st.length > 10) html += '<tr><td colspan="5" class="muted">…共 ' + st.length + ' 人</td></tr>';
+  html += '</tbody></table>';
+  document.getElementById('zyPreview').innerHTML = html;
+  msg(document.getElementById('zyMsg'), '解析成功：' + st.length + ' 人，确认后设为全站生效', true);
+}
+function confirmZy() {
+  if (!window.__zyData || !window.__zyData.length) { msg(document.getElementById('zyMsg'), '请先解析'); return; }
+  var f = document.getElementById('zyFile').files[0];
+  api('/api/admin/builtin/zy', { method: 'POST', body: { data: window.__zyData, remark: document.getElementById('zyRemark').value.trim() } })
+    .then(function(d) {
+      if (d.ok) {
+        if (f) uploadOrigin(f, 'zy');
+        msg(document.getElementById('zyMsg'), '已设为全站生效：' + d.version, true);
+        api('/api/admin/builtin').then(function(d2){ if (d2.ok) renderVersion(d2); });
+      } else { msg(document.getElementById('zyMsg'), d.error || '提交失败'); }
+    }).catch(function(){ msg(document.getElementById('zyMsg'), '网络错误'); });
+}
+
+function fmt(v) {
+  if (v === null || v === undefined) { return ''; }
+  return String(v).trim();
+}
+function toNum(v) {
+  if (v === null || v === undefined) { return null; }
+  var f = parseFloat(v);
+  return isNaN(f) ? null : f;
+}
+function r5(v) { return Math.round((v == null ? 0 : v) * 100000) / 100000; }
+function parseModNote(note) {
+  var out = [];
+  if (!note) { return out; }
+  var s = String(note);
+  var re = /([\s\S]*?)[(\uff08]([\uff0b+]?\s*[\d.]+\s*)[)\uff09]/g;
+  var m, last = 0;
+  while ((m = re.exec(s)) !== null) {
+    var nm = m[1].replace(/^[\s\u3001\uff0c,;、)+)\uff09]+/, '').replace(/[\uff0b+\s\u3001\uff0c,;、]+$/g, '').trim();
+    var sc = parseFloat(m[2].replace(/[\uff0b+\s]/g, ''));
+    if (!isNaN(sc)) {
+      out.push({ name: nm || ('\u52a0\u5206\u9879' + (out.length + 1)), score: sc });
+    }
+    last = re.lastIndex;
+  }
+  var tail = s.slice(last);
+  if (tail && tail.trim()) {
+    var parts = tail.split(/[\u3001\uff0c,;\u3002\n\r\s]+/);
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i].trim();
+      if (!p) { continue; }
+      var m2 = p.match(/([\uff0b+]?\s*)([\d.]+)\s*\u5206?$/);
+      if (m2 && p.replace(m2[0], '').trim().length >= 1) {
+        out.push({ name: p.replace(m2[0], '').trim(), score: parseFloat(m2[2]) });
+        continue;
+      }
+      var m3 = p.match(/^[\uff0b+]\s*([\d.]+)/);
+      if (m3) {
+        out.push({ name: p.replace(m3[0], '').trim(), score: parseFloat(m3[1]) });
+      }
+    }
+  }
+  return out;
+}
+/* 综测表解析：智育平均分/学期综测总分/25门课成绩/各模块加分明细 */
+function extractClsFromStr(s) {
+  var m = String(s || '').match(/([\u4e00-\u9fa5A-Za-z][\u4e00-\u9fa5A-Za-z0-9\-]*?\u73ed)/);
+  return m ? m[1] : '';
+}
+function rowsToZongce(rows, fileClsHint) {
+  var students = [];
+  if (!rows || !rows.length) { return students; }
+  /* 1) 班级名：文件名优先（综测表内部模板标题常未改班级，如都写"智造23-本3班"） */
+  var cls = '';
+  var clsTitle = extractClsFromStr(fileClsHint);
+  if (!clsTitle) {
+    for (var i = 0; i < Math.min(5, rows.length); i++) {
+      var line = '';
+      var r0 = rows[i];
+      if (!r0) { continue; }
+      for (var k = 0; k < Math.min(14, r0.length); k++) { line += ' ' + fmt(r0[k]); }
+      if (line.indexOf('\u73ed') >= 0 && (line.indexOf('\u7efc\u5408') >= 0 || line.indexOf('\u5b66\u5e74') >= 0 || line.indexOf('\u6d4b\u8bc4') >= 0)) {
+        var mm = extractClsFromStr(line);
+        if (mm) { clsTitle = mm; break; }
+      }
+    }
+  }
+  if (clsTitle) { cls = clsNorm(clsTitle); }                                  /* \u8868\u5185\u6807\u9898\u4f18\u5148\uff08\u5982\u300c\u667a\u902023-\u672c4\u73ed\u300d\uff09 */
+  if (!cls) { cls = clsNorm(String(fileClsHint || '').replace(/\.[^.]+$/, '')); }  /* \u6587\u4ef6\u540d\u4ec5\u4f5c\u5907\u7528 */
+  /* 2) 表头行：含"姓名"且含"学号/序号" */
+  var hi = -1;
+  for (var i = 0; i < Math.min(14, rows.length); i++) {
+    var r = rows[i];
+    if (!r) { continue; }
+    var hasName = false, hasNum = false;
+    for (var k = 0; k < r.length; k++) {
+      var tt = fmt(r[k]);
+      if (tt === '\u59d3\u540d') { hasName = true; }
+      if (tt === '\u5b66\u53f7' || tt === '\u5e8f\u53f7') { hasNum = true; }
+    }
+    if (hasName && hasNum) { hi = i; break; }
+  }
+  if (hi < 0) { return students; }
+  var hdr = rows[hi];
+  function findCol(kws) {
+    var scanRows = [hdr];
+    if (hi + 2 < rows.length) { scanRows.push(rows[hi + 2]); }   /* \u5b50\u8868\u5934\u884c\u4f18\u5148 */
+    for (var e = 1; e <= 3 && hi + e < rows.length; e++) {
+      if (e === 1) { continue; }                                  /* \u8df3\u8fc7 hi+1 \u516c\u5f0f\u8bf4\u660e\u884c\uff08\u542b\u300c\u5e73\u5747\u6210\u7ee9=\u2026\u300d\uff09 */
+      if (scanRows.indexOf(rows[hi + e]) < 0) { scanRows.push(rows[hi + e]); }
+    }
+    for (var rr2 = 0; rr2 < scanRows.length; rr2++) {
+      var rr = scanRows[rr2];
+      if (!rr) { continue; }
+      for (var k = 0; k < rr.length; k++) {
+        var tt = fmt(rr[k]);
+        for (var j = 0; j < kws.length; j++) {
+          if (tt.indexOf(kws[j]) >= 0) { return k; }
+        }
+      }
+    }
+    return -1;
+  }
+  function findColExact(kws) {
+    var scanRows = [hdr];
+    for (var e = 1; e <= 3 && hi + e < rows.length; e++) { scanRows.push(rows[hi + e]); }
+    for (var rr2 = 0; rr2 < scanRows.length; rr2++) {
+      var rr = scanRows[rr2];
+      if (!rr) { continue; }
+      for (var k = 0; k < rr.length; k++) {
+        var tt = fmt(rr[k]);
+        for (var j = 0; j < kws.length; j++) {
+          if (tt === kws[j]) { return k; }
+        }
+      }
+    }
+    return -1;
+  }
+  var cName = findCol(['\u59d3\u540d']);
+  var cSid = findCol(['\u5b66\u53f7']);
+  var cGpa = findCol(['\u667a\u80b2\u5e73\u5747']);
+  var cComp = findCol(['\u5b66\u671f\u7efc\u5408\u7d20\u8d28\u6d4b\u8bc4\u603b\u5206']);
+  if (cComp < 0) { cComp = findCol(['\u7efc\u5408\u7d20\u8d28\u6d4b\u8bc4\u603b\u5206']); }
+  if (cComp < 0) { cComp = findCol(['\u5b66\u671f\u603b\u5206']); }
+  var cWarn = findColExact(['\u5907\u6ce8']);
+  if (cWarn < 0) { cWarn = findCol(['\u662f\u5426\u6302\u79d1']); }
+  if (cWarn < 0) { cWarn = findCol(['\u5907\u6ce8']); }
+  if (cName < 0) { return students; }
+  /* 3) 课程名行 / 学分行：表头行之后动态扫描。先按模块关键词过滤（跳过 公式说明行/子表头行/姓名学号列），
+        剩余文本≥2 且含非数字 → 课程名行；剩余全数字 ≥2 → 学分行。课程列范围不固定，随班级课程实际变化 */
+  var hc = -1, hd = -1;
+  var badKw = ['\u603b\u5206', '\u5907\u6ce8', '\u52a0\u5206', '\u51cf\u5206', '\u57fa\u7840', '\u59d3\u540d', '\u5b66\u53f7', '\u5e8f\u53f7', '\u6392\u540d', '\u7b7e\u540d', '\u4f53\u6d4b', '\u5b66\u671f', '\u5e73\u5747', '\u8bfe\u7a0b', '\u5b66\u5206', '\u603b\u8bc4', '\u6210\u7ee9', '\u7efc\u5408\u7d20\u8d28', '\u6838\u5fc3\u8bfe\u7a0b', '\u4e13\u4e1a\u8bfe\u7a0b', '\u521d\u8bc4', '\u5ba1\u6838', '\u793a\u4f8b', '\u4e0a\u5b66\u671f', '\u4e0b\u5b66\u671f', '\u6302\u79d1', '\u8fdd\u7eaa'];
+  function isBadName(sv) {
+    for (var b = 0; b < badKw.length; b++) {
+      if (sv.indexOf(badKw[b]) >= 0) { return true; }
+    }
+    return false;
+  }
+  var bestHc = -1, bestHcN = -1, bestHd = -1, bestHdN = -1;
+  for (var s = hi + 1; s < Math.min(hi + 6, rows.length); s++) {
+    var rr = rows[s];
+    if (!rr) { continue; }
+    var nTxt = 0, nNum = 0, nNon = 0;
+    var hasAny = false;
+    for (var c = 0; c < rr.length; c++) {
+      var sv = fmt(rr[c]);
+      if (sv === '') { continue; }
+      if (c === cName || c === cSid) { continue; }
+      if (isBadName(sv)) { continue; }
+      if (/^\d+$/.test(sv) && sv.length <= 3) { continue; }   /* \u5e8f\u53f7\u5217 */
+      hasAny = true;
+      nTxt++;
+      if (/^-?\d+(\.\d+)?$/.test(sv)) { nNum++; } else { nNon++; }
+    }
+    if (!hasAny) { continue; }
+    if (nNon > 0 && nTxt > bestHcN) { bestHcN = nTxt; bestHc = s; }       /* \u8bfe\u7a0b\u540d\u884c=\u8fc7\u6ee4\u540e\u6587\u672c\u6700\u591a\u884c */
+    if (nNon === 0 && nNum > bestHdN) { bestHdN = nNum; bestHd = s; }     /* \u5b66\u5206\u884c=\u7eaf\u6570\u5b57\u6700\u591a\u884c */
+  }
+  var hc = bestHc, hd = bestHd;
+  /* 课程列范围：取学分行的最长连续数字段（最可靠，不受"例子"行/数字列干扰） */
+  var cStart = -1, cEnd = -1;
+  if (hd >= 0) {
+    var hdr2 = rows[hd];
+    var bestSegS = -1, bestSegE = -1, bestSegLen = -1, segS = -1, segE = -1;
+    for (var cc = 0; cc < hdr2.length; cc++) {
+      var v2 = hdr2[cc];
+      var vs2 = fmt(v2);
+      var isNum = vs2 !== '' && /^-?\d+(\.\d+)?$/.test(vs2);
+      if (isNum) {
+        if (segS < 0) { segS = cc; }
+        segE = cc;
+      } else {
+        if (segS >= 0) {
+          var len2 = segE - segS + 1;
+          if (len2 > bestSegLen) { bestSegLen = len2; bestSegS = segS; bestSegE = segE; }
+          segS = -1;
+        }
+      }
+    }
+    if (segS >= 0 && segE - segS + 1 > bestSegLen) { bestSegLen = segE - segS + 1; bestSegS = segS; bestSegE = segE; }
+    if (bestSegLen >= 2) { cStart = bestSegS; cEnd = bestSegE; }
+  }
+  if (cStart < 0 && hc >= 0) {
+    var hcr = rows[hc];
+    for (var cc2 = 0; cc2 < hcr.length; cc2++) {
+      var cv = hcr[cc2];
+      if (cv === undefined || cv === null) { continue; }
+      var cvs = fmt(cv);
+      if (cvs === '') { continue; }
+      if (cc2 === cName || cc2 === cSid) { continue; }
+      if (isBadName(cvs)) { continue; }
+      if (/^\d+$/.test(cvs) && cvs.length <= 3) { continue; }
+      if (cStart < 0) { cStart = cc2; }
+      cEnd = cc2;
+    }
+  }
+  if (cStart < 0) { cStart = 8; cEnd = 32; }
+  /* 模块锚点列：按表头精确匹配各模块总分列，其余列按模板相对偏移推导（各年级/专业综测表模板一致） */
+  var cDeTotal = findColExact(['\u5fb7\u80b2\u603b\u5206']);
+  var cZyTotal = findColExact(['\u667a\u80b2\u603b\u5206']);
+  var cKyTotal = findColExact(['\u603b\u79d1\u6280\u5206']);
+  if (cKyTotal < 0) { cKyTotal = findColExact(['\u79d1\u6280\u5206']); }
+  var cTyTotal = findColExact(['\u4f53\u80b2\u603b\u5206']);
+  var cMyTotal = findColExact(['\u7f8e\u80b2\u603b\u5206']);
+  var cLdTotal = findColExact(['\u80fd\u529b\u603b\u5206']);
+  if (cLdTotal < 0) { cLdTotal = findColExact(['\u52b3\u52a8\u603b\u5206']); }
+  if (cDeTotal < 0) { cDeTotal = 7; }
+  if (cZyTotal < 0) { cZyTotal = 33; }
+  if (cKyTotal < 0) { cKyTotal = 36; }
+  if (cTyTotal < 0) { cTyTotal = 45; }
+  if (cMyTotal < 0) { cMyTotal = 50; }
+  if (cLdTotal < 0) { cLdTotal = 54; }
+  /* 4) 数据行 */
+  for (var i = hi + 1; i < rows.length; i++) {
+    var r = rows[i];
+    if (!r || !r.length) { continue; }
+    var seq = fmt(r[0]);
+    if (!/^\s*\d/.test(seq)) { continue; }
+    var name = fmt(r[cName]);
+    if (name === '') { continue; }
+    var gpa = cGpa >= 0 ? toNum(r[cGpa]) : null;
+    var comp = cComp >= 0 ? toNum(r[cComp]) : null;
+    if (gpa === null && comp === null) { continue; }
+    /* 课程成绩：动态列范围 */
+    var scores = [], cnames = [], ccreds = [];
+    for (var c = cStart; c <= cEnd && c < r.length; c++) {
+      var sc = r[c];
+      var nv = toNum(sc);
+      var isStr = (typeof sc === 'string') && fmt(sc) !== '' && nv === null;
+      scores.push(isStr ? fmt(sc) : nv);
+      if (hc >= 0 && rows[hc] && rows[hc][c] !== undefined && rows[hc][c] !== null && fmt(rows[hc][c]) !== '') {
+        cnames.push(fmt(rows[hc][c]));
+      } else { cnames.push(''); }
+      if (hd >= 0 && rows[hd] && rows[hd][c] !== undefined && rows[hd][c] !== null && fmt(rows[hd][c]) !== '') {
+        ccreds.push(toNum(rows[hd][c]) || 0);
+      } else { ccreds.push(0); }
+    }
+    var cv2 = function (col) { return (col >= 0 && r[col] !== undefined && r[col] !== null) ? r[col] : ''; };
+    var stu = {
+      name: name,
+      stid: cSid >= 0 ? fmt(r[cSid]) : '',
+      cls: cls,
+      clsTitle: clsTitle,
+      grade: clsToGrade(cls),
+      major: clsToMajor(cls),
+      gpa: gpa,
+      comp: comp,
+      warn: cWarn >= 0 ? fmt(r[cWarn]) : '',
+      scores: scores,
+      cnames: cnames,
+      ccreds: ccreds,
+      courseSet: (function () { var s = {}; for (var q = 0; q < cnames.length; q++) { if (cnames[q]) { s[normCn(cnames[q])] = 1; } } return s; })(),
+      de: { base: toNum(cv2(cDeTotal - 4)), add: toNum(cv2(cDeTotal - 3)), sub: toNum(cv2(cDeTotal - 2)), note: fmt(cv2(cDeTotal - 1)), total: toNum(cv2(cDeTotal)) },
+      ky: { note: fmt(cv2(cKyTotal - 1)), total: toNum(cv2(cKyTotal)) },
+      ty: { tice: toNum(cv2(cTyTotal - 8)), u: toNum(cv2(cTyTotal - 7)), d: toNum(cv2(cTyTotal - 6)), avg: toNum(cv2(cTyTotal - 5)), base: toNum(cv2(cTyTotal - 4)), add: toNum(cv2(cTyTotal - 3)), sub: toNum(cv2(cTyTotal - 2)), note: fmt(cv2(cTyTotal - 1)), total: toNum(cv2(cTyTotal)) },
+      my: { base: toNum(cv2(cMyTotal - 4)), add: toNum(cv2(cMyTotal - 3)), sub: toNum(cv2(cMyTotal - 2)), note: fmt(cv2(cMyTotal - 1)), total: toNum(cv2(cMyTotal)) },
+      ld: { add: toNum(cv2(cLdTotal - 3)), sub: toNum(cv2(cLdTotal - 2)), note: fmt(cv2(cLdTotal - 1)), total: toNum(cv2(cLdTotal)) }
+    };
+    students.push(stu);
+  }
+  return students;
+}
+
+/* 包装：与主看板同口径解析综测表 */
+function parseZcRows(rows, fileClsHint) {
+  if (!rows || rows.length < 2) { return { error: '表格为空或行数不足' }; }
+  var st;
+  try {
+    st = rowsToZongce(rows, fileClsHint || '');
+  } catch (e) { return { error: '解析失败：' + String((e && e.message) || e) }; }
+  if (!st || !st.length) { return { error: '未解析到学生数据（请确认是综测表：含 姓名/学号/各科成绩/智育平均分/综测总分）' }; }
+  var courses = [], credits = [];
+  if (Array.isArray(st[0].cnames)) {
+    courses = st[0].cnames;
+    credits = Array.isArray(st[0].ccreds) ? st[0].ccreds : courses.map(function () { return 0; });
+  }
+  return { students: st, courses: courses, credits: credits };
+}
+
+function parseZc() {
+  var f = document.getElementById('zcFile').files[0];
+  if (!f) { msg(document.getElementById('zcMsg'), '请先选择文件'); return; }
+  var ext = f.name.toLowerCase().split('.').pop();
+  if (ext === 'json') {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        var d = JSON.parse(e.target.result);
+        if (!d.students || !Array.isArray(d.students)) throw new Error('JSON 需包含 students 数组');
+        window.__zcData = d;
+        showZcPreview(d);
+      } catch (err) { msg(document.getElementById('zcMsg'), 'JSON 解析失败：' + err.message); }
+    };
+    reader.readAsText(f);
+    return;
+  }
+  readSheet(f, function(rows, err) {
+    if (err) { msg(document.getElementById('zcMsg'), err); return; }
+    var res = parseZcRows(rows, f.name);
+    if (res.error) { msg(document.getElementById('zcMsg'), res.error); return; }
+    if (!res.students.length) { msg(document.getElementById('zcMsg'), '未解析到学生数据'); return; }
+    window.__zcData = { courses: res.courses, credits: res.credits, students: res.students };
+    showZcPreview(window.__zcData);
+  });
+}
+function showZcPreview(d) {
+  var st = d.students || [];
+  var nw = st.filter(function(s){ return s.warn === '是'; }).length;
+  var html = '<div style="margin:8px 0"><span class="stat">共 ' + st.length + ' 人</span><span class="stat">挂科/违纪 ' + nw + '</span><span class="muted">注：综测表建议使用 .json（含完整课程与明细），表格解析为基础字段</span></div>';
+  html += '<table id="preview"><thead><tr><th>姓名</th><th>班级</th><th>智育</th><th>综测</th></tr></thead><tbody>';
+  st.slice(0, 10).forEach(function(s) {
+    html += '<tr><td>' + s.name + '</td><td>' + s.cls + '</td><td>' + (typeof s.gpa === 'number' ? s.gpa.toFixed(2) : Number(s.gpa || 0).toFixed(2)) + '</td><td>' + (typeof s.comp === 'number' ? s.comp.toFixed(2) : Number(s.comp || 0).toFixed(2)) + '</td></tr>';
+  });
+  if (st.length > 10) html += '<tr><td colspan="4" class="muted">…共 ' + st.length + ' 人</td></tr>';
+  html += '</tbody></table>';
+  document.getElementById('zcPreview').innerHTML = html;
+  msg(document.getElementById('zcMsg'), '解析成功：' + st.length + ' 人，确认后设为全站生效', true);
+}
+function confirmZc() {
+  if (!window.__zcData || !window.__zcData.students.length) { msg(document.getElementById('zcMsg'), '请先解析'); return; }
+  var f = document.getElementById('zcFile').files[0];
+  api('/api/admin/builtin/zc', { method: 'POST', body: { data: window.__zcData, remark: document.getElementById('zcRemark').value.trim() } })
+    .then(function(d) {
+      if (d.ok) {
+        if (f) uploadOrigin(f, 'zc');
+        msg(document.getElementById('zcMsg'), '已设为全站生效：' + d.version, true);
+        api('/api/admin/builtin').then(function(d2){ if (d2.ok) renderVersion(d2); });
+      } else { msg(document.getElementById('zcMsg'), d.error || '提交失败'); }
+    }).catch(function(){ msg(document.getElementById('zcMsg'), '网络错误'); });
+}
+
+/* ============ 上传记录 ============ */
+function loadRecords() {
+  var body = document.getElementById('recBody');
+  api('/api/admin/files').then(function(d) {
+    if (!d.ok) { body.innerHTML = '<tr><td colspan="6" class="muted">' + (d.error || '加载失败') + '</td></tr>'; return; }
+    var recs = d.records || [];
+    if (!recs.length) { body.innerHTML = '<tr><td colspan="6" class="muted">暂无上传记录</td></tr>'; return; }
+    body.innerHTML = recs.map(function(r) {
+      return '<tr><td>' + r.name + '</td><td>' + r.type + '</td><td>' + fmtSize(r.size) + '</td><td>' + r.time + '</td><td>' + (r.remark || '') + '</td>' +
+        '<td><button class="btn ghost sm" onclick="dlRec(\'' + r.id + '\')">下载</button> <button class="btn danger sm" onclick="delRec(\'' + r.id + '\')">删除</button></td></tr>';
+    }).join('');
+  }).catch(function(){ body.innerHTML = '<tr><td colspan="6" class="muted">网络错误</td></tr>'; });
+}
+function dlRec(id) {
+  fetch('/api/admin/files/' + id + '/download?token=' + encodeURIComponent(TOKEN))
+    .then(function (r) {
+      if (!r.ok) { alert('下载失败（' + r.status + '）'); return null; }
+      var cd = r.headers.get('Content-Disposition') || '';
+      var m = cd.match(/filename\*=UTF-8''([^;]+)/i);
+      var fname = m ? decodeURIComponent(m[1]) : ('下载文件-' + id);
+      return r.blob().then(function (b) { return { blob: b, fname: fname }; });
+    })
+    .then(function (o) {
+      if (!o) { return; }
+      var url = URL.createObjectURL(o.blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = o.fname;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    })
+    .catch(function () { alert('下载失败，请重试'); });
+}
+function delRec(id) {
+  if (!confirm('确认删除该上传记录与文件？')) return;
+  api('/api/admin/files/' + id, { method: 'DELETE', body: {} }).then(function(d) {
+    if (d.ok) loadRecords();
+  });
+}
+
+/* ============ 配置 ============ */
+function loadCfg() {
+  api('/api/admin/config').then(function(d) {
+    if (d.ok) {
+      document.getElementById('cfgTitle').value = d.config.title || '';
+      document.getElementById('cfgSub').value = d.config.subtitle || '';
+      document.getElementById('topTitle').textContent = d.config.title || '管理后台';
+      document.getElementById('topSub').textContent = d.config.subtitle || '';
+    }
+  });
+}
+function saveCfg() {
+  api('/api/admin/config', { method: 'POST', body: { title: document.getElementById('cfgTitle').value.trim(), subtitle: document.getElementById('cfgSub').value.trim() } })
+    .then(function(d) { if (d.ok) { msg(document.getElementById('cfgMsg'), '配置已保存', true); loadCfg(); } else { msg(document.getElementById('cfgMsg'), d.error || '保存失败'); } });
+}
+function changePwd() {
+  var p = document.getElementById('newPwd').value.trim();
+  if (p.length < 4) { msg(document.getElementById('pwdMsg'), '密码至少4位'); return; }
+  api('/api/admin/config', { method: 'POST', body: { password: p } })
+    .then(function(d) { if (d.ok) { msg(document.getElementById('pwdMsg'), '密码已修改，请重新登录', true); document.getElementById('newPwd').value = ''; logout(); } else { msg(document.getElementById('pwdMsg'), d.error || '修改失败'); } });
+}
+
+/* 已登录则直接进入 */
+if (TOKEN) {
+  fetch('/api/admin/files?token=' + encodeURIComponent(TOKEN)).then(function(r){ return r.json(); }).then(function(d) {
+    if (d.ok) {
+      document.getElementById('loginView').classList.add('hidden');
+      document.getElementById('mainView').classList.remove('hidden');
+      loadAll();
+    } else { TOKEN = ''; localStorage.removeItem('zcv2_admin_token'); }
+  }).catch(function(){});
+}
+</script>
+</body>
+</html>
