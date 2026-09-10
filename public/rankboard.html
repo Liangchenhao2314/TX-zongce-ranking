@@ -1798,6 +1798,32 @@ var pendingZyStudents = null, pendingZcStudents = null;
 var pendingZyName = '', pendingZcNames = '';
 function readXlsToRows(arrayBuf, cb) {
   try {
+    /* JSON 表格文件（对象数组）支持：转成二维表交给既有解析逻辑 */
+    try {
+      var txt = new TextDecoder('utf-8').decode(arrayBuf).replace(/^\ufeff/, '').trim();
+      if (txt.charAt(0) === '[' || txt.charAt(0) === '{') {
+        var jarr = JSON.parse(txt);
+        if (Array.isArray(jarr)) {
+          var keys = [];
+          for (var qi = 0; qi < jarr.length; qi++) {
+            var qo = jarr[qi];
+            if (qo && typeof qo === 'object') {
+              for (var qk in qo) { if (keys.indexOf(qk) < 0) { keys.push(qk); } }
+            }
+          }
+          if (keys.length) {
+            var jrows = [keys];
+            for (var qj = 0; qj < jarr.length; qj++) {
+              var ro = jarr[qj] || {};
+              var rw = [];
+              for (var qk2 = 0; qk2 < keys.length; qk2++) { rw.push(ro[keys[qk2]] != null ? ro[keys[qk2]] : ''); }
+              jrows.push(rw);
+            }
+            return cb(jrows, null);
+          }
+        }
+      }
+    } catch (e) {}
     if (typeof XLSX === 'undefined') { cb(null, '\u89e3\u6790\u5e93\u672a\u52a0\u8f7d\uff0c\u8bf7\u91cd\u65b0\u6253\u5f00\u672c\u6587\u4ef6'); return; }
     var wb = XLSX.read(new Uint8Array(arrayBuf), { type: 'array', cellDates: false, cellText: false, cellNF: false });
     var ws = wb.Sheets[wb.SheetNames[0]];
@@ -1819,7 +1845,7 @@ function mergeStudents(list, keyFn) {
   return out;
 }
 
-function uploadHook(files, type) {
+function uploadHook(files, type, dataJson) {
   try {
     for (var i = 0; i < files.length; i++) {
       (function (f) {
@@ -1827,9 +1853,10 @@ function uploadHook(files, type) {
           var fd = new FormData();
           fd.append('file', f);
           fd.append('type', type);
-          fetch('/api/upload', { method: 'POST', body: fd })
+          if (dataJson) { fd.append('data', dataJson); }
+          fetch('/api/upload/file', { method: 'POST', body: fd })
             .then(function (r) { return r.json(); })
-            .then(function (d) { if (d && d.ok && window.__uploadNote) { window.__uploadNote(d.record); } })
+            .then(function (d) { if (d && d.success && window.__uploadNote) { window.__uploadNote(d.record); } })
             .catch(function () {});
         } catch (e) {}
       })(files[i]);
@@ -1840,7 +1867,6 @@ function uploadHook(files, type) {
 document.getElementById('fileZy').addEventListener('change', function () {
   var files = this.files;
   if (!files || !files.length) { return; }
-  uploadHook(files, 'zy');
   var t0 = Date.now();
   showUpdateMsg('\u6b63\u5728\u89e3\u6790\u6210\u7ee9\u5355\u6587\u4ef6\uff0c\u8bf7\u7a0d\u5019\u2026');
   var list = Array.prototype.slice.call(files);
@@ -1879,13 +1905,13 @@ document.getElementById('fileZy').addEventListener('change', function () {
       Object.keys(gs).length + ' \u4e2a\u5e74\u7ea7 / ' + Object.keys(ms).length + ' \u4e2a\u4e13\u4e1a / ' + Object.keys(cs).length + ' \u4e2a\u73ed\u7ea7\u3002<b>\u5f53\u524d\u699c\u5355\u5c1a\u672a\u53d8\u5316</b>\uff0c\u70b9\u51fb\u4e0b\u65b9[\u5e94\u7528\u6570\u636e]\u540e\u751f\u6548\u3002';
     document.getElementById('updatePreview').className = 'update-preview show';
     showUpdateMsg('\u6210\u7ee9\u5355\u89e3\u6790\u5b8c\u6210\uff0c\u5171 ' + merged.length + ' \u4eba\uff0c\u7528\u65f6 ' + el + ' \u79d2\u3002\u70b9\u51fb\u4e0b\u65b9[\u5e94\u7528\u6570\u636e]\u751f\u6548\u3002');
+    uploadHook(list, 'zy', JSON.stringify(merged));
   }
   for (var f = 0; f < list.length; f++) { pending++; parseOne(list[f]); }
 });
 document.getElementById('fileZc').addEventListener('change', function () {
   var files = this.files;
   if (!files || !files.length) { return; }
-  uploadHook(files, 'zc');
   var t0 = Date.now();
   showUpdateMsg('\u6b63\u5728\u89e3\u6790\u7efc\u6d4b\u8868\u6587\u4ef6\uff0c\u8bf7\u7a0d\u5019\u2026');
   var list = Array.prototype.slice.call(files);
@@ -1924,6 +1950,7 @@ document.getElementById('fileZc').addEventListener('change', function () {
       Object.keys(gs).length + ' \u4e2a\u5e74\u7ea7 / ' + Object.keys(ms).length + ' \u4e2a\u4e13\u4e1a / ' + Object.keys(cs).length + ' \u4e2a\u73ed\u7ea7\u3002\u65b0\u73ed\u7ea7\u5c06<b>\u66ff\u6362\u540c\u540d\u73ed\u7ea7\u3001\u4fdd\u7559\u5176\u4ed6\u73ed</b>\u3002<b>\u5f53\u524d\u699c\u5355\u5c1a\u672a\u53d8\u5316</b>\uff0c\u70b9\u51fb\u4e0b\u65b9[\u5e94\u7528\u6570\u636e]\u540e\u751f\u6548\u3002';
     document.getElementById('updatePreview').className = 'update-preview show';
     showUpdateMsg('\u7efc\u6d4b\u8868\u89e3\u6790\u5b8c\u6210\uff0c\u5171 ' + merged.length + ' \u4eba\uff0c\u7528\u65f6 ' + el + ' \u79d2\u3002\u70b9\u51fb\u4e0b\u65b9[\u5e94\u7528\u6570\u636e]\u751f\u6548\u3002');
+    uploadHook(list, 'zc', JSON.stringify(merged));
   }
   for (var f = 0; f < list.length; f++) { pending++; parseOne(list[f]); }
 });

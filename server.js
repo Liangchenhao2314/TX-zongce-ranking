@@ -7,6 +7,7 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const uploadRouter = require('./routes/upload');
 
 const ROOT = __dirname;
 const PUBLIC = path.join(ROOT, 'public');
@@ -59,7 +60,7 @@ function cleanTokens() {
   for (const [k, v] of TOKENS) { if (now > v) { TOKENS.delete(k); } }
 }
 
-// ---------------- multer：原样保存 ----------------
+/* ================= 原有本地文件上传（已迁移至七牛云，注释保留以便回滚） =================
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOADS),
   filename: (req, file, cb) => {
@@ -76,6 +77,7 @@ const storage = multer.diskStorage({
   }
 });
 const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } });
+*/
 
 const app = express();
 app.use(express.json({ limit: '20mb' }));
@@ -106,7 +108,7 @@ app.get('/api/builtin/meta', (req, res) => {
   res.json({ version: BUILTIN.version || '内置', updatedAt: BUILTIN.updatedAt || '' });
 });
 
-// 访客上传（免登录）：保存原文件 + 记录
+/* ================= 访客上传（原本地存储，已迁移至七牛云，注释保留以便回滚） =================
 app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ ok: false, error: '未收到文件（字段名应为 file）' });
@@ -136,6 +138,12 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   saveJSON(RECORDS_FILE, RECORDS);
   res.status(201).json({ ok: true, id, record: rec });
 });
+*/
+
+// ---------------- 七牛云文件上传（访客免登录） ----------------
+// 接口：POST /api/upload/file（字段名 file），上传成功返回 { success: true, url }
+// 文件不落本地磁盘，直接上传七牛云；上传记录（含七牛 URL）写入 records.json 供管理后台查看/下载
+app.use('/api/upload', uploadRouter);
 
 // ---------------- 管理后台 ----------------
 app.post('/api/admin/login', (req, res) => {
@@ -148,19 +156,22 @@ app.post('/api/admin/login', (req, res) => {
   }
 });
 
-// 上传记录列表
+// 上传记录列表（实时读文件，兼容七牛路由写入的新记录）
 app.get('/api/admin/files', (req, res) => {
   if (!checkToken(req)) { return res.status(401).json({ ok: false, error: '未授权' }); }
-  const list = RECORDS.slice().sort((a, b) => b.ts - a.ts);
+  const list = loadJSON(RECORDS_FILE, []).slice().sort((a, b) => b.ts - a.ts);
   res.json({ ok: true, records: list });
 });
 
-// 下载源文件（原格式）
+// 下载源文件：七牛云模式跳转在线 URL（302）；旧本地记录回退本地文件下载
 app.get('/api/admin/files/:id/download', (req, res) => {
   if (!checkToken(req)) { return res.status(401).json({ ok: false, error: '未授权' }); }
   const id = req.params.id.toString();
-  const rec = RECORDS.find((r) => r.id === id);
+  const rec = loadJSON(RECORDS_FILE, []).find((r) => r.id === id);
   if (!rec) { return res.status(404).json({ ok: false, error: '记录不存在' }); }
+  if (rec.qiniuUrl) {
+    return res.redirect(302, rec.qiniuUrl);
+  }
   const p = path.join(UPLOADS, rec.stored);
   if (!fs.existsSync(p)) { return res.status(404).json({ ok: false, error: '文件不存在' }); }
   const fname = encodeURIComponent(rec.name);
@@ -168,16 +179,17 @@ app.get('/api/admin/files/:id/download', (req, res) => {
   res.download(p, rec.name);
 });
 
-// 删除记录
+// 删除记录（实时读文件）
 app.delete('/api/admin/files/:id', (req, res) => {
   if (!checkToken(req)) { return res.status(401).json({ ok: false, error: '未授权' }); }
   const id = req.params.id.toString();
-  const idx = RECORDS.findIndex((r) => r.id === id);
+  const recs = loadJSON(RECORDS_FILE, []);
+  const idx = recs.findIndex((r) => r.id === id);
   if (idx < 0) { return res.status(404).json({ ok: false, error: '记录不存在' }); }
-  const rec = RECORDS[idx];
+  const rec = recs[idx];
   try { fs.unlinkSync(path.join(UPLOADS, rec.stored)); } catch (e) {}
-  RECORDS.splice(idx, 1);
-  saveJSON(RECORDS_FILE, RECORDS);
+  recs.splice(idx, 1);
+  saveJSON(RECORDS_FILE, recs);
   res.json({ ok: true });
 });
 

@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "express": "^4.19.2",
-    "multer": "^1.4.5-lts.1"
+    "mongoose": "^9.9.5",
+    "multer": "^1.4.5-lts.1",
+    "qiniu": "^7.15.2"
   }
 }
