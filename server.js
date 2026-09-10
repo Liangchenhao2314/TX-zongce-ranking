@@ -7,6 +7,8 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const http = require('http');
+const https = require('https');
 const uploadRouter = require('./routes/upload');
 
 const ROOT = __dirname;
@@ -163,19 +165,48 @@ app.get('/api/admin/files', (req, res) => {
   res.json({ ok: true, records: list });
 });
 
-// 下载源文件：七牛云模式跳转在线 URL（302）；旧本地记录回退本地文件下载
+// 常见表格文件 MIME 映射
+const MIME_MAP = {
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.xls': 'application/vnd.ms-excel',
+  '.csv': 'text/csv; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8'
+};
+
+// 下载源文件：七牛云记录 → 后端代理拉流下载（避免 302 跨域问题）；旧本地记录回退本地文件下载
 app.get('/api/admin/files/:id/download', (req, res) => {
   if (!checkToken(req)) { return res.status(401).json({ ok: false, error: '未授权' }); }
   const id = req.params.id.toString();
   const rec = loadJSON(RECORDS_FILE, []).find((r) => r.id === id);
   if (!rec) { return res.status(404).json({ ok: false, error: '记录不存在' }); }
+  // 文件名（UTF-8）写入 Content-Disposition，前端用 decodeURIComponent 还原
+  const fname = encodeURIComponent(rec.name || '下载文件');
+  const ext = path.extname(rec.name || '').toLowerCase();
+  const mime = MIME_MAP[ext] || 'application/octet-stream';
+  res.setHeader('Content-Type', mime);
+  res.setHeader('Content-Disposition', "attachment; filename*=UTF-8''" + fname);
   if (rec.qiniuUrl) {
-    return res.redirect(302, rec.qiniuUrl);
+    // 七牛云模式：后端代理拉取七牛文件流，pipe 给浏览器
+    let urlObj;
+    try { urlObj = new URL(rec.qiniuUrl); } catch (e) { return res.status(502).json({ ok: false, error: '七牛 URL 无效' }); }
+    const mod = urlObj.protocol === 'https:' ? https : http;
+    const proxy = mod.get(urlObj, function (upstream) {
+      if (upstream.statusCode !== 200) {
+        upstream.resume();
+        return res.status(502).json({ ok: false, error: '七牛文件拉取失败 HTTP ' + upstream.statusCode });
+      }
+      res.status(200);
+      upstream.pipe(res);
+    });
+    proxy.on('error', function () {
+      res.status(502).json({ ok: false, error: '七牛文件拉取失败（网络错误）' });
+    });
+    return;
   }
+  // 旧本地记录：直接读本地文件
   const p = path.join(UPLOADS, rec.stored);
   if (!fs.existsSync(p)) { return res.status(404).json({ ok: false, error: '文件不存在' }); }
-  const fname = encodeURIComponent(rec.name);
-  res.setHeader('Content-Disposition', "attachment; filename*=UTF-8''" + fname);
   res.download(p, rec.name);
 });
 

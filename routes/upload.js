@@ -21,11 +21,21 @@ if (!fs.existsSync(TMP_DIR)) {
   fs.mkdirSync(TMP_DIR, { recursive: true });
 }
 
+// multer 1.x 的 file.originalname 是 latin1 编码（中文 UTF-8 字节被存成 latin1 字符），
+// 需转回 UTF-8，否则中文文件名会乱码（如 2025ç§°æµ...）。若转出替换符则说明原名正常，保留原名。
+function decodeOriginalName(name) {
+  if (!name) { return name; }
+  try {
+    const utf8 = Buffer.from(name, 'latin1').toString('utf8');
+    return utf8.includes('\uFFFD') ? name : utf8;
+  } catch (e) { return name; }
+}
+
 // multer：文件先落临时目录，文件名 = 时间戳 + 随机字符串 + 原扩展名
 const storage = multer.diskStorage({
   destination: function (req, file, cb) { cb(null, TMP_DIR); },
   filename: function (req, file, cb) {
-    const ext = path.extname(file.originalname || '').toLowerCase() || '';
+    const ext = path.extname(decodeOriginalName(file.originalname || '')).toLowerCase() || '';
     const name = Date.now() + '-' + crypto.randomBytes(8).toString('hex') + ext;
     cb(null, name);
   }
@@ -76,7 +86,7 @@ function saveRecord(req, file, key, url, parsed) {
   const remark = (req.body.remark || '').toString();
   const rec = {
     id: crypto.randomBytes(8).toString('hex'),
-    name: file.originalname || '未命名',
+    name: decodeOriginalName(file.originalname) || '未命名',
     stored: key,
     qiniuUrl: url,
     type: ftype === 'zy' ? '成绩单' : ftype === 'zc' ? '综测表' : '其他',

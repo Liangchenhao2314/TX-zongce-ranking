@@ -24,7 +24,7 @@ config.zone = qiniu.zone.ZoneHuanan;
  * 上传本地文件到七牛云
  * @param {string} localFilePath 本地文件绝对路径
  * @param {string} key 七牛云中的对象名（文件名）
- * @returns {Promise<string>} 文件完整在线 URL：https://外链域名/文件名
+ * @returns {Promise<string>} 文件完整在线 URL：http://外链域名/文件名（测试域名仅支持 http）
  */
 function uploadToQiniu(localFilePath, key) {
   return new Promise((resolve, reject) => {
@@ -42,7 +42,8 @@ function uploadToQiniu(localFilePath, key) {
         return reject(err);
       }
       if (info && info.statusCode === 200) {
-        resolve('https://' + DOMAIN + '/' + key);
+        // 注意：七牛测试域名仅支持 http，不支持 https（正式绑定自定义域名后可视情况改回 https）
+        resolve('http://' + DOMAIN + '/' + key);
       } else {
         const msg = (body && body.error) ? body.error : ('HTTP ' + (info && info.statusCode));
         reject(new Error('七牛上传失败：' + msg));
