@@ -21,6 +21,7 @@ const RECORDS_FILE = path.join(DATA, 'records.json');
 const CONFIG_FILE = path.join(DATA, 'config.json');
 const BUILTIN_FILE = path.join(DATA, 'builtin.json');
 const BUILTIN_HISTORY_FILE = path.join(DATA, 'builtin_history.json');
+const TOKENS_FILE = path.join(DATA, 'admin_tokens.json');
 
 for (const d of [DATA, UPLOADS]) {
   if (!fs.existsSync(d)) { fs.mkdirSync(d, { recursive: true }); }
@@ -41,14 +42,29 @@ let RECORDS = loadJSON(RECORDS_FILE, []);
 let BUILTIN = loadJSON(BUILTIN_FILE, { zy: [], zc: { courses: [], credits: [], students: [] }, version: '内置', updatedAt: '' });
 let HISTORY = loadJSON(BUILTIN_HISTORY_FILE, []);
 
-// ---------------- 鉴权 ----------------
+// ---------------- 鉴权（token 持久化到文件，重启不丢登录态） ----------------
 const TOKENS = new Map(); // token -> expiry(ms)
 const TOKEN_TTL = 1000 * 60 * 60 * 24 * 3; // 3天
-
+/* 启动时从文件加载已登录 token，过期的清理掉 */
+(function loadTokens() {
+  try {
+    const arr = loadJSON(TOKENS_FILE, []);
+    const now = Date.now();
+    for (const item of arr) { if (item && item.t && item.e > now) { TOKENS.set(item.t, item.e); } }
+  } catch (e) { /* ignore */ }
+})();
+function persistTokens() {
+  try {
+    const arr = [];
+    for (const [k, v] of TOKENS) { arr.push({ t: k, e: v }); }
+    saveJSON(TOKENS_FILE, arr);
+  } catch (e) { /* ignore */ }
+}
 function newToken() {
   const raw = CONFIG.password + '|' + Date.now() + '|' + crypto.randomBytes(16).toString('hex');
   const token = crypto.createHash('sha256').update(raw).digest('hex') + '.' + Date.now();
   TOKENS.set(token, Date.now() + TOKEN_TTL);
+  persistTokens();
   return token;
 }
 function checkToken(req) {
@@ -56,12 +72,14 @@ function checkToken(req) {
   if (!t) { return false; }
   const exp = TOKENS.get(t);
   if (!exp) { return false; }
-  if (Date.now() > exp) { TOKENS.delete(t); return false; }
+  if (Date.now() > exp) { TOKENS.delete(t); persistTokens(); return false; }
   return true;
 }
 function cleanTokens() {
   const now = Date.now();
-  for (const [k, v] of TOKENS) { if (now > v) { TOKENS.delete(k); } }
+  let changed = false;
+  for (const [k, v] of TOKENS) { if (now > v) { TOKENS.delete(k); changed = true; } }
+  if (changed) { persistTokens(); }
 }
 
 /* ================= 原有本地文件上传（已迁移至七牛云，注释保留以便回滚） =================
@@ -329,6 +347,7 @@ app.post('/api/admin/config', (req, res) => {
   if (typeof password === 'string' && password.trim() && password.trim().length >= 4) {
     CONFIG.password = password.trim();
     TOKENS.clear();
+    persistTokens();
   }
   saveJSON(CONFIG_FILE, CONFIG);
   res.json({ ok: true });
