@@ -1681,6 +1681,8 @@ function modCard(title, rowsHtml, total, formula) {
   return html;
 }
 function buildZcModCards(stu) {
+  // 空值兜底：某学生缺某模块时不报错
+  stu.de = stu.de || {}; stu.ky = stu.ky || {}; stu.ty = stu.ty || {}; stu.my = stu.my || {}; stu.ld = stu.ld || {};
   var html = '';
   function addRow(mn, val) {
     return '<div class="mod-row"><span class="mn">' + mn + '</span><span class="mv">' + val + '</span></div>';
