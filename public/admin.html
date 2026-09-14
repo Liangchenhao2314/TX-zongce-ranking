@@ -114,6 +114,7 @@ tr:hover td { background: #f8fbfe; }
         <div id="versionInfo"><span class="muted">加载中…</span></div>
         <div style="margin-top:10px">
           <button class="btn ghost sm" onclick="rollback()">回滚到上一版本</button>
+          <button class="btn danger sm" onclick="clearBuiltin()">清空全站生效数据</button>
           <span class="muted" style="margin-left:10px" id="histInfo"></span>
         </div>
       </div>
@@ -202,6 +203,13 @@ function renderVersion(d) {
 }
 function rollback() {
   api('/api/admin/builtin/rollback', { method: 'POST', body: {} }).then(function(d){
+    api('/api/admin/builtin').then(function(d2){ if (d2.ok) renderVersion(d2); });
+  });
+}
+
+function clearBuiltin() {
+  if (!confirm('确认清空全站生效数据？\n\n清除后前台访问时不会有任何学生排名数据（可以用“回滚到上一版本”恢复），确定继续？')) { return; }
+  api('/api/admin/builtin/clear', { method: 'POST', body: {} }).then(function(d){
     api('/api/admin/builtin').then(function(d2){ if (d2.ok) renderVersion(d2); });
   });
 }

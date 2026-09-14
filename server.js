@@ -287,6 +287,24 @@ app.post('/api/admin/builtin/rollback', (req, res) => {
   res.json({ ok: true, version: BUILTIN.version });
 });
 
+// 清空全站生效数据（管理员）：前台访问时无任何学生排名数据
+app.post('/api/admin/builtin/clear', (req, res) => {
+  if (!checkToken(req)) { return res.status(401).json({ ok: false, error: '未授权' }); }
+  HISTORY.push({ kind: 'zy', data: BUILTIN.zy, version: BUILTIN.version, updatedAt: BUILTIN.updatedAt, remark: '（清空前·智育）' });
+  if (BUILTIN.zc && BUILTIN.zc.students && BUILTIN.zc.students.length) {
+    HISTORY.push({ kind: 'zc', data: BUILTIN.zc, version: BUILTIN.version, updatedAt: BUILTIN.updatedAt, remark: '（清空前·综测）' });
+  }
+  if (HISTORY.length > 20) { HISTORY.splice(0, HISTORY.length - 20); }
+  BUILTIN.zy = [];
+  BUILTIN.zc = { courses: [], credits: [], students: [] };
+  BUILTIN.version = '已清空';
+  BUILTIN.updatedAt = new Date().toLocaleString('zh-CN', { hour12: false });
+  BUILTIN.remark = '';
+  saveJSON(BUILTIN_FILE, BUILTIN);
+  saveJSON(BUILTIN_HISTORY_FILE, HISTORY);
+  res.json({ ok: true, version: BUILTIN.version });
+});
+
 // 配置管理
 app.get('/api/admin/config', (req, res) => {
   if (!checkToken(req)) { return res.status(401).json({ ok: false, error: '未授权' }); }
