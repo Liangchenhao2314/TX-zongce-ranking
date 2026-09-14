@@ -165,8 +165,9 @@
   .tpl-link { font-size: 12.5px; color: #1976D2; text-decoration: none; margin-left: 2px; }
   .tpl-link:hover { text-decoration: underline; }
   .empty-tip { text-align: center; color: #8a94a6; padding: 28px 10px; font-size: 13.5px; }
-  .update-msg { font-size: 13px; color: #2e9e5b; }
-  .update-msg.error { color: #d64545; }
+  .update-msg { font-size: 13px; color: #2e9e5b; white-space: pre-line; }
+  .update-msg.error { color: #d64545; font-weight: 600; }
+  .update-msg.error.wrong-area { font-size: 15px; font-weight: 700; color: #d93025; border: 1px solid #f5c6c6; background: #fdeaea; padding: 8px 12px; border-radius: 6px; }
 
   /* ============ 榜单 ============ */
   .board {
@@ -637,6 +638,30 @@ function isTranscript(rows) {
     if (t.indexOf('\u603b\u8bc4') >= 0 || t.indexOf('\u7ee9\u70b9') >= 0) { return true; }
   }
   return false;
+}
+/* 智能识别文件类型：'zy'=成绩单（智育） | 'zc'=综测表（综测） | ''=未知 */
+function detectFileKind(rows) {
+  if (!rows || !rows.length) { return ''; }
+  for (var i = 0; i < Math.min(14, rows.length); i++) {
+    var r = rows[i];
+    if (!r) { continue; }
+    var hasName = false, hasNum = false, hasZc = false;
+    for (var k = 0; k < r.length; k++) {
+      var tt = fmt(r[k]);
+      if (tt === '姓名') { hasName = true; }
+      else if (tt === '学号' || tt === '序号') { hasNum = true; }
+      else if (tt.indexOf('综合素质测评总分') >= 0 || tt.indexOf('学期总分') >= 0 || tt.indexOf('智育平均') >= 0 || tt.indexOf('德育') >= 0 || tt.indexOf('体育') >= 0 || tt.indexOf('美育') >= 0 || tt.indexOf('劳动') >= 0) { hasZc = true; }
+    }
+    if (hasName && hasNum && hasZc) { return 'zc'; }
+  }
+  if (isTranscript(rows)) { return 'zy'; }
+  return '';
+}
+/* 放错上传区域的醒目提示文案 */
+function wrongAreaText(kind) {
+  return kind === 'zc'
+    ? '【文件放错上传区域！】\n你上传的是综测表文件，当前是【智育成绩单上传区】\n请切换到下方「上传综测表」区域提交该文件'
+    : '【文件放错上传区域！】\n你上传的是智育成绩单文件，当前是【综测表上传区】\n请切换到上方「上传成绩单」区域提交该文件';
 }
 /* 成绩单聚合：按人 Σ(总评×学分)/Σ学分；识别 年级/专业/班级；按第15/16条定分 */
 function rowsToTranscript(rows) {
@@ -1717,10 +1742,10 @@ function openVerify(name, cls, stid) {
 function closeVerify() { document.getElementById('verifyMask').style.display = 'none'; }
 
 /* ---------- 九、消息与持久化 ---------- */
-function showUpdateMsg(text, isError) {
+function showUpdateMsg(text, isError, isWrongArea) {
   var el = document.getElementById('updateMsg');
   el.textContent = text;
-  el.className = 'update-msg' + (isError ? ' error' : '');
+  el.className = 'update-msg' + (isError ? ' error' : '') + (isWrongArea ? ' wrong-area' : '');
 }
 var IDB_NAME = 'zcv2_db';
 var IDB_STORE = 'kv';
@@ -1780,6 +1805,23 @@ function clearLocalData() {
   try { localStorage.removeItem('zcv2_import_zy'); } catch (e) {}
   try { localStorage.removeItem('zcv2_import_zc'); } catch (e) {}
   HAS_LOCAL_DATA = false;
+  if (typeof indexedDB !== 'undefined') {
+    try {
+      var req = indexedDB.open(IDB_NAME, 1);
+      req.onsuccess = function () {
+        try {
+          var tx = req.result.transaction(IDB_STORE, 'readwrite');
+          tx.objectStore(IDB_STORE).delete('lastZy');
+          tx.objectStore(IDB_STORE).delete('lastZc');
+        } catch (e2) {}
+      };
+    } catch (e3) {}
+  }
+}
+/* 仅清除“全站类型”本地缓存（IndexedDB lastZy/lastZc + 导入标记），不动访客本地数据 zy_local/zc_local */
+function clearServerCache() {
+  try { localStorage.removeItem('zcv2_import_zy'); } catch (e) {}
+  try { localStorage.removeItem('zcv2_import_zc'); } catch (e) {}
   if (typeof indexedDB !== 'undefined') {
     try {
       var req = indexedDB.open(IDB_NAME, 1);
@@ -2024,7 +2066,7 @@ document.getElementById('fileZy').addEventListener('change', function () {
   var t0 = Date.now();
   showUpdateMsg('\u6b63\u5728\u89e3\u6790\u6210\u7ee9\u5355\u6587\u4ef6\uff0c\u8bf7\u7a0d\u5019\u2026');
   var list = Array.prototype.slice.call(files);
-  var allStudents = [], errMsg = '', pending = 0;
+  var allStudents = [], errMsg = '', pending = 0, wrongKind = '';
   function doneOne() { pending--; if (pending <= 0) { afterAll(); } }
   function parseOne(file) {
     var reader = new FileReader();
@@ -2032,6 +2074,7 @@ document.getElementById('fileZy').addEventListener('change', function () {
       readXlsToRows(e.target.result, function (rows, err) {
         if (err) { errMsg = err; doneOne(); return; }
         try {
+          if (detectFileKind(rows) === 'zc') { wrongKind = 'zc'; doneOne(); return; }
           var parsed = isTranscript(rows) ? rowsToTranscript(rows) : rowsToDirect(rows);
           allStudents = allStudents.concat(parsed);
         } catch (e2) { errMsg = String((e2 && e2.message) || e2); }
@@ -2043,6 +2086,7 @@ document.getElementById('fileZy').addEventListener('change', function () {
   }
   function afterAll() {
     var el = ((Date.now() - t0) / 1000).toFixed(1);
+    if (wrongKind) { showUpdateMsg(wrongAreaText(wrongKind), true, true); return; }
     if (errMsg) { showUpdateMsg(errMsg, true); return; }
     if (!allStudents.length) { showUpdateMsg('\u672a\u89e3\u6790\u5230\u6709\u6548\u6570\u636e\uff0c\u8bf7\u68c0\u67e5\u6587\u4ef6\u683c\u5f0f', true); return; }
     var merged = mergeStudents(allStudents, function (st) { return st.name + '|' + (st.stid || clsNorm(st.cls)); });
@@ -2074,7 +2118,7 @@ document.getElementById('fileZc').addEventListener('change', function () {
   var t0 = Date.now();
   showUpdateMsg('\u6b63\u5728\u89e3\u6790\u7efc\u6d4b\u8868\u6587\u4ef6\uff0c\u8bf7\u7a0d\u5019\u2026');
   var list = Array.prototype.slice.call(files);
-  var allStudents = [], errMsg = '', pending = 0;
+  var allStudents = [], errMsg = '', pending = 0, wrongKind = '';
   function doneOne() { pending--; if (pending <= 0) { afterAll(); } }
   function parseOne(file) {
     var reader = new FileReader();
@@ -2082,6 +2126,7 @@ document.getElementById('fileZc').addEventListener('change', function () {
       readXlsToRows(e.target.result, function (rows, err) {
         if (err) { errMsg = err; doneOne(); return; }
         try {
+          if (detectFileKind(rows) === 'zy') { wrongKind = 'zy'; doneOne(); return; }
           var parsed = rowsToZongce(rows, file.name.replace(/\.[^.]+$/, ''));
           allStudents = allStudents.concat(parsed);
         } catch (e2) { errMsg = String((e2 && e2.message) || e2); }
@@ -2093,6 +2138,7 @@ document.getElementById('fileZc').addEventListener('change', function () {
   }
   function afterAll() {
     var el = ((Date.now() - t0) / 1000).toFixed(1);
+    if (wrongKind) { showUpdateMsg(wrongAreaText(wrongKind), true, true); return; }
     if (errMsg) { showUpdateMsg(errMsg, true); return; }
     if (!allStudents.length) { showUpdateMsg('\u672a\u89e3\u6790\u5230\u6709\u6548\u6570\u636e\uff0c\u8bf7\u68c0\u67e5\u6587\u4ef6\u683c\u5f0f', true); return; }
     var merged = mergeStudents(allStudents, function (st) { return st.name + '|' + st.stid; });
@@ -2144,8 +2190,6 @@ function applyZyData(newStudents) {
   document.getElementById('pageFooter').textContent =
     '\u667a\u80b2\u6570\u636e\u6765\u6e90\uff1a\u7528\u6237\u66f4\u65b0\uff08\u5171 ' + newStudents.length + ' \u4eba\uff0c' + bjNow() + '\uff09\uff5c \u53ef\u9009\u62e9\u5e74\u7ea7\u3001\u4e13\u4e1a\u53ca\u540c\u4e13\u4e1a\u5185\u73ed\u7ea7\u6392\u540d\u6bd4\u8f83\uff1b\u667a\u80b2\u5e73\u5747\u5206 = \u5168\u90e8\u8bfe\u7a0b\u5b66\u5206\u52a0\u6743\u5e73\u5747\uff0c\u7b49\u7ea7\u6362\u7b97\uff1a\u4f1895/\u826f85/\u4e2d75/\u53ca\u683c65/\u4e0d\u53ca\u683c40/\u5408\u683c65\uff1b\u91cd\u4fee\u4e0d\u8ba1\u5165\uff08\u7b2c15\u6761\uff09\uff0c\u8865\u8003\u6309\u539f\u59cb\u5206\u3001\u7f13\u8003\u6309\u7f13\u8003\u6210\u7ee9\u3001\u4f5c\u5f0a/\u7f3a\u8003 0\u5206\uff08\u7b2c16\u6761\uff09';
   showUpdateMsg('\u667a\u80b2\u6392\u540d\u5df2\u66f4\u65b0\uff0c\u5171 ' + newStudents.length + ' \u4eba\uff0c\u8bc6\u522b\u5230 ' + opts.grades.length + ' \u4e2a\u5e74\u7ea7 / ' + opts.majors.length + ' \u4e2a\u4e13\u4e1a / ' + Object.keys(opts.clss).length + ' \u4e2a\u73ed\u7ea7');
-  try { localStorage.setItem('zcv2_import_zy', '1'); } catch (e) {}
-  setTimeout(saveZyData, 50);
   saveLocalSnapshot('zy');
   DATA_VIEW = 'local';
   updateViewToggle();
@@ -2187,8 +2231,6 @@ function applyZcData(newStudents) {
   document.getElementById('pageFooter').textContent =
     '\u7efc\u6d4b\u6570\u636e\u6765\u6e90\uff1a\u7528\u6237\u66f4\u65b0\uff08\u5f53\u524d\u5171 ' + ZC_POOL.length + ' \u4eba\uff0c\u6700\u8fd1\u5bfc\u5165 ' + newStudents.length + ' \u4eba\uff0c' + bjNow() + '\uff09\uff5c \u53ef\u9009\u62e9\u5e74\u7ea7\u3001\u4e13\u4e1a\u53ca\u540c\u4e13\u4e1a\u5185\u73ed\u7ea7\u6392\u540d\u6bd4\u8f83\uff1b\u667a\u80b2\u5e73\u5747\u5206\u4e0e\u5b66\u671f\u7efc\u6d4b\u603b\u5206\u53d6\u7efc\u6d4b\u8868\u539f\u503c\uff1b\u70b9\u51fb\u201c\u6838\u9a8c\u201d\u53ef\u67e5\u8bfe\u7a0b\u660e\u7ec6\u4e0e\u5404\u6a21\u5757\u52a0\u5206\u660e\u7ec6';
   showUpdateMsg('\u7efc\u6d4b\u6392\u540d\u5df2\u66f4\u65b0\uff0c\u5171 ' + newStudents.length + ' \u4eba\uff08\u540c\u540d\u73ed\u7ea7\u5df2\u66ff\u6362\uff0c\u5176\u4ed6\u73ed\u4fdd\u7559\uff09');
-  try { localStorage.setItem('zcv2_import_zc', '1'); } catch (e) {}
-  setTimeout(saveZcData, 50);
   saveLocalSnapshot('zc');
   DATA_VIEW = 'local';
   updateViewToggle();
@@ -2421,53 +2463,25 @@ function bindEvents() {
   document.getElementById('boardC').classList.toggle('hidden', MODE !== 'zc');
   defaultSelFor(MODE);
   bindEvents();
-  restoreLastData2(MODE, function (restored) {
-    var snap = loadLocalSnapshot(MODE);
-    if (snap) {
-      DATA_VIEW = 'local';
-      HAS_LOCAL_DATA = true;
-      if (MODE === 'zy') { applyZyData(snap.students); } else { applyZcData(snap.students); }
-      var fbs = document.getElementById('pageFooter');
-      if (fbs) { fbs.textContent = (MODE === 'zy' ? '\u667a\u80b2' : '\u7efc\u6d4b') + '\u6570\u636e\u6765\u6e90\uff1a\u672c\u6d4f\u89c8\u5668\u4fdd\u5b58\u7684\u672c\u5730\u6570\u636e\uff08' + (snap.savedAt || '\u672a\u77e5\u65f6\u95f4') + '\uff09\uff5c \u672c\u5730\u6570\u636e\u4ec5\u5b58\u4e8e\u5f53\u524d\u6d4f\u89c8\u5668\uff0c\u4e0d\u4f1a\u4e0a\u4f20\u670d\u52a1\u5668\uff1b\u53ef\u70b9\u51fb\u201c\u67e5\u770b\u5168\u7ad9\u751f\u6548\u6570\u636e\u201d\u5207\u6362'; }
-      updateViewToggle();
-      return;
-    }
-    if (restored && !window.__serverLoaded) {
-      var ck2 = checkClsConsistency(MODE);
-      if (!ck2.ok) {
-        /* \u6062\u590d\u7684\u73ed\u7ea7\u7ec4\u5408\u975e\u6cd5\uff08\u8de8\u4f53\u7cfb/\u8de8\u8bfe\u7a0b\uff09\uff1a\u56de\u9000\u5230\u6700\u5927\u53ef\u4e92\u6bd4\u7ec4 */
-        var src2 = currentSrc();
-        var clss2 = [];
-        for (var zz = 0; zz < src2.length; zz++) {
-          var s2 = src2[zz];
-          if (s2.grade === SEL_GRADE && s2.major === SEL_MAJOR) {
-            var nn = clsNorm(s2.cls);
-            if (clss2.indexOf(nn) < 0) { clss2.push(nn); }
-          }
-        }
-        var best2 = [], bestSize2 = -1;
-        for (var aa = 0; aa < clss2.length; aa++) {
-          var grp2 = [clss2[aa]];
-          for (var bb = 0; bb < clss2.length; bb++) {
-            if (bb !== aa && !clsDiffMsg(clss2[aa], clss2[bb], MODE)) { grp2.push(clss2[bb]); }
-          }
-          if (grp2.length > bestSize2) { bestSize2 = grp2.length; best2 = grp2; }
-        }
-        SEL_CLS = {};
-        for (var gg = 0; gg < best2.length; gg++) { SEL_CLS[best2[gg]] = true; }
-      }
-      var fb = document.getElementById('pageFooter');
-      var at = MODE === 'zy' ? LAST_ZY_AT : LAST_ZC_AT;
-      if (fb) {
-        fb.textContent = (MODE === 'zy' ? '\u667a\u80b2' : '\u7efc\u6d4b') + '\u6570\u636e\u6765\u6e90\uff1a\u6700\u8fd1\u4e00\u6b21\u5bfc\u5165\uff08' + (at || '\u672a\u77e5\u65f6\u95f4') + '\uff09\uff5c \u53ef\u9009\u62e9\u5e74\u7ea7\u3001\u4e13\u4e1a\u53ca\u540c\u4e13\u4e1a\u5185\u73ed\u7ea7\u6392\u540d\u6bd4\u8f83\uff1b\u91cd\u4fee\u4e0d\u8ba1\u5165\uff08\u7b2c15\u6761\uff09\uff1b\u8865\u8003\u6309\u539f\u59cb\u5206\u3001\u7f13\u8003\u6309\u7f13\u8003\u6210\u7ee9\u3001\u4f5c\u5f0a/\u7f3a\u8003 0\u5206\uff08\u7b2c16\u6761\uff09\uff1b\u7b49\u7ea7\u6362\u7b97\uff1a\u4f1895/\u826f85/\u4e2d75/\u53ca\u683c65/\u4e0d\u53ca\u683c40/\u5408\u683c65\uff1b\u4f53\u80b2\u514d\u4fee\u630965';
-        DATA_VIEW = 'local';
-        HAS_LOCAL_DATA = true;
-      }
-    }
+  /* 页面加载：访客本地数据（zy_local/zc_local）同步恢复（无 IndexedDB 竞争）；
+     全站数据由下方 fetch 从服务端拉取（权威来源，后端已清空则丢弃本地旧全站缓存） */
+  var snapInit = loadLocalSnapshot(MODE);
+  if (snapInit) {
+    DATA_VIEW = 'local';
+    HAS_LOCAL_DATA = true;
+    if (MODE === 'zy') { applyZyData(snapInit.students); } else { applyZcData(snapInit.students); }
+    var fbs = document.getElementById('pageFooter');
+    if (fbs) { fbs.textContent = (MODE === 'zy' ? '智育' : '综测') + '数据来源：本浏览器保存的本地数据（' + (snapInit.savedAt || '未知时间') + '）｜ 本地数据仅存于当前浏览器，不会上传服务器；可点击“查看全站生效数据”切换'; }
+    updateViewToggle();
+  } else {
+    DATA_VIEW = 'server';
     renderSelector();
     renderAll();
+    var fbN = document.getElementById('pageFooter');
+    var totN = MODE === 'zy' ? ZY_POOL.length : ZC_POOL.length;
+    if (fbN) { fbN.textContent = (MODE === 'zy' ? '智育' : '综测') + '数据来源：全站生效数据（管理员发布）｜ 当前共 ' + totN + ' 人' + (totN ? '' : '，暂无可排名数据，请上传成绩单 / 综测表，或等待管理员发布'); }
     updateViewToggle();
-  });
+  }
 })();
 
 
@@ -2483,6 +2497,8 @@ function bindEvents() {
           return m ? (m[1] + '\u7ea7') : '';
         }
         window.__serverLoaded = true;
+        var clearedAll = (d.version === '已清空') || ((!d.zy || !d.zy.length) && (!d.zc || !d.zc.students || !d.zc.students.length));
+        if (clearedAll) { clearServerCache(); }
         if (d.zyVerify && d.zyVerify.pool) {
           ZY_VERIFY_POOL = d.zyVerify.pool || {};
           ZY_GM_LIST = d.zyVerify.gmlist || {};
