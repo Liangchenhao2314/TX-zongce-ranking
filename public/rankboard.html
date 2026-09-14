@@ -1757,6 +1757,7 @@ var ZC_LOCAL_KEY = 'zc_local';
 var LOCAL_DATA_KEY = 'zongce_ranking_local_data';   /* 旧版共用 key（仅兼容读取迁移，不再写入） */
 var DATA_VIEW = 'server';        /* local=访客本地数据 | server=全站生效数据 */
 var HAS_LOCAL_DATA = false;      /* 本浏览器是否存在本地数据 */
+var VIEW_PREF_KEY = 'zcv2_view_pref';  /* 访客对本地/全站视图的选择偏好，刷新后保持 */
 function localKeyFor(m) { return m === 'zy' ? ZY_LOCAL_KEY : ZC_LOCAL_KEY; }
 function bjNow() {
   try { return new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }); }
@@ -1771,7 +1772,10 @@ function saveLocalSnapshot(mode) {
       type: mode, savedAt: bjNow(), fileName: fname, students: src
     }));
     HAS_LOCAL_DATA = true;
-  } catch (e) {}
+  } catch (e) {
+    /* 浏览器存储满/失败时不能静默——否则刷新后数据"凭空消失" */
+    try { showUpdateMsg('本地保存失败：浏览器本地存储空间已满，刷新后数据会丢失。请清理浏览器缓存或减少同时保留的数据量后重新上传', true); } catch (e2) {}
+  }
 }
 function loadLocalSnapshot(mode) {
   try {
@@ -1802,6 +1806,7 @@ function clearLocalData() {
   try { localStorage.removeItem(ZY_LOCAL_KEY); } catch (e) {}
   try { localStorage.removeItem(ZC_LOCAL_KEY); } catch (e) {}
   try { localStorage.removeItem(LOCAL_DATA_KEY); } catch (e) {}
+  try { localStorage.removeItem(VIEW_PREF_KEY); } catch (e) {}
   try { localStorage.removeItem('zcv2_import_zy'); } catch (e) {}
   try { localStorage.removeItem('zcv2_import_zc'); } catch (e) {}
   HAS_LOCAL_DATA = false;
@@ -1851,6 +1856,7 @@ function switchToServer() {
     fbS.textContent = (MODE === 'zy' ? '智育' : '综测') + '数据来源：全站生效数据（管理员发布）｜ 当前共 ' + totalS + ' 人';
     if (!totalS) { fbS.textContent += '，暂无可排名数据，请上传成绩单 / 综测表，或等待管理员发布'; }
   }
+  try { localStorage.setItem(VIEW_PREF_KEY, 'server'); } catch (e) {}
 }
 function switchToLocal() {
   var p = loadLocalSnapshot(MODE);
@@ -1861,6 +1867,7 @@ function switchToLocal() {
   updateViewToggle();
   var fbL = document.getElementById('pageFooter');
     if (fbL) { fbL.textContent = (MODE === 'zy' ? '智育' : '综测') + '数据来源：本浏览器保存的本地数据（' + (p.savedAt || '未知时间') + '）｜ 本地数据仅存于当前浏览器，不会上传服务器；可点击“查看全站生效数据”切换'; }
+  try { localStorage.setItem(VIEW_PREF_KEY, 'local'); } catch (e) {}
 }
 function updateViewToggle() {
   var b = document.getElementById('btnViewToggle');
@@ -2192,6 +2199,7 @@ function applyZyData(newStudents) {
   showUpdateMsg('\u667a\u80b2\u6392\u540d\u5df2\u66f4\u65b0\uff0c\u5171 ' + newStudents.length + ' \u4eba\uff0c\u8bc6\u522b\u5230 ' + opts.grades.length + ' \u4e2a\u5e74\u7ea7 / ' + opts.majors.length + ' \u4e2a\u4e13\u4e1a / ' + Object.keys(opts.clss).length + ' \u4e2a\u73ed\u7ea7');
   saveLocalSnapshot('zy');
   DATA_VIEW = 'local';
+  try { localStorage.setItem(VIEW_PREF_KEY, 'local'); } catch (e) {}
   updateViewToggle();
 }
 function applyZcData(newStudents) {
@@ -2233,6 +2241,7 @@ function applyZcData(newStudents) {
   showUpdateMsg('\u7efc\u6d4b\u6392\u540d\u5df2\u66f4\u65b0\uff0c\u5171 ' + newStudents.length + ' \u4eba\uff08\u540c\u540d\u73ed\u7ea7\u5df2\u66ff\u6362\uff0c\u5176\u4ed6\u73ed\u4fdd\u7559\uff09');
   saveLocalSnapshot('zc');
   DATA_VIEW = 'local';
+  try { localStorage.setItem(VIEW_PREF_KEY, 'local'); } catch (e) {}
   updateViewToggle();
 }
 function defaultSelFor(m) {
@@ -2464,9 +2473,12 @@ function bindEvents() {
   defaultSelFor(MODE);
   bindEvents();
   /* 页面加载：访客本地数据（zy_local/zc_local）同步恢复（无 IndexedDB 竞争）；
-     全站数据由下方 fetch 从服务端拉取（权威来源，后端已清空则丢弃本地旧全站缓存） */
+     全站数据由下方 fetch 从服务端拉取（权威来源，后端已清空则丢弃本地旧全站缓存）。
+     视图偏好：用户上次选了"查看全站生效数据"则刷新后保持全站，不强制跳回本地。 */
+  var viewPref = null;
+  try { viewPref = localStorage.getItem(VIEW_PREF_KEY); } catch (e) {}
   var snapInit = loadLocalSnapshot(MODE);
-  if (snapInit) {
+  if (snapInit && viewPref !== 'server') {
     DATA_VIEW = 'local';
     HAS_LOCAL_DATA = true;
     if (MODE === 'zy') { applyZyData(snapInit.students); } else { applyZcData(snapInit.students); }
