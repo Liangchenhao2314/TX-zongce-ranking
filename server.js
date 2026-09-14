@@ -2,6 +2,8 @@
  * Express + multer：主看板 / 管理后台 / 上传存储 / 鉴权 / 内置数据管理
  * 上传的文件以原格式原样保存（不转换、不改变源文件）
  */
+/* 全局时区固定为北京时间（东八区 UTC+8），确保存储与返回的时间均为北京时间 */
+process.env.TZ = 'Asia/Shanghai';
 const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
@@ -102,6 +104,7 @@ app.get('/api/builtin', (req, res) => {
   res.json({
     zy: BUILTIN.zy || [],
     zc: BUILTIN.zc || { courses: [], credits: [], students: [] },
+    zyVerify: BUILTIN.zyVerify || null,
     version: BUILTIN.version || '内置',
     updatedAt: BUILTIN.updatedAt || ''
   });
@@ -242,9 +245,10 @@ app.post('/api/admin/builtin/zy', (req, res) => {
   if (!Array.isArray(data) || !data.length) {
     return res.status(400).json({ ok: false, error: '数据无效' });
   }
-  HISTORY.push({ kind: 'zy', data: BUILTIN.zy, version: BUILTIN.version, updatedAt: BUILTIN.updatedAt, remark: '（旧版）' });
+  HISTORY.push({ kind: 'zy', data: BUILTIN.zy, zyVerify: BUILTIN.zyVerify || null, version: BUILTIN.version, updatedAt: BUILTIN.updatedAt, remark: '（旧版）' });
   if (HISTORY.length > 20) { HISTORY.shift(); }
   BUILTIN.zy = data;
+  BUILTIN.zyVerify = (req.body.verify && typeof req.body.verify === 'object') ? req.body.verify : null;
   BUILTIN.version = '智育 v' + new Date().toLocaleString('zh-CN', { hour12: false });
   BUILTIN.updatedAt = new Date().toLocaleString('zh-CN', { hour12: false });
   BUILTIN.remark = remark;
@@ -279,9 +283,17 @@ app.post('/api/admin/builtin/rollback', (req, res) => {
   const old = HISTORY.pop();
   if (old.kind === 'zy') {
     BUILTIN.zy = old.data || BUILTIN.zy;
+    BUILTIN.zyVerify = old.zyVerify || null;
   } else if (old.kind === 'zc') {
     BUILTIN.zc = old.data || BUILTIN.zc;
+  } else if (old.kind === 'all') {
+    /* 清空时压入的合并历史：一次性恢复智育 + 综测两套完整数据 */
+    BUILTIN.zy = old.zy || BUILTIN.zy;
+    BUILTIN.zc = old.zc || BUILTIN.zc;
+    BUILTIN.zyVerify = old.zyVerify || null;
   }
+  if (old.version) { BUILTIN.version = old.version; }
+  if (old.updatedAt) { BUILTIN.updatedAt = old.updatedAt; }
   saveJSON(BUILTIN_HISTORY_FILE, HISTORY);
   saveJSON(BUILTIN_FILE, BUILTIN);
   res.json({ ok: true, version: BUILTIN.version });
@@ -290,13 +302,12 @@ app.post('/api/admin/builtin/rollback', (req, res) => {
 // 清空全站生效数据（管理员）：前台访问时无任何学生排名数据
 app.post('/api/admin/builtin/clear', (req, res) => {
   if (!checkToken(req)) { return res.status(401).json({ ok: false, error: '未授权' }); }
-  HISTORY.push({ kind: 'zy', data: BUILTIN.zy, version: BUILTIN.version, updatedAt: BUILTIN.updatedAt, remark: '（清空前·智育）' });
-  if (BUILTIN.zc && BUILTIN.zc.students && BUILTIN.zc.students.length) {
-    HISTORY.push({ kind: 'zc', data: BUILTIN.zc, version: BUILTIN.version, updatedAt: BUILTIN.updatedAt, remark: '（清空前·综测）' });
-  }
+  /* 智育、综测两套数据作为一条合并历史压入，回滚时可一次性恢复完整版本 */
+  HISTORY.push({ kind: 'all', zy: BUILTIN.zy, zc: BUILTIN.zc, zyVerify: BUILTIN.zyVerify || null, version: BUILTIN.version, updatedAt: BUILTIN.updatedAt, remark: '（清空前）' });
   if (HISTORY.length > 20) { HISTORY.splice(0, HISTORY.length - 20); }
   BUILTIN.zy = [];
   BUILTIN.zc = { courses: [], credits: [], students: [] };
+  BUILTIN.zyVerify = null;
   BUILTIN.version = '已清空';
   BUILTIN.updatedAt = new Date().toLocaleString('zh-CN', { hour12: false });
   BUILTIN.remark = '';

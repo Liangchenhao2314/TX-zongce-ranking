@@ -578,7 +578,13 @@ function showZyPreview(st) {
 function confirmZy() {
   if (!window.__zyData || !window.__zyData.length) { msg(document.getElementById('zyMsg'), '请先解析'); return; }
   var f = document.getElementById('zyFile').files[0];
-  api('/api/admin/builtin/zy', { method: 'POST', body: { data: window.__zyData, remark: document.getElementById('zyRemark').value.trim() } })
+var _verify = { pool: {}, gmlist: {}, clscred: {} };
+  try {
+    for (var _vk in ZY_VERIFY_POOL) { if (ZY_VERIFY_POOL.hasOwnProperty(_vk)) { _verify.pool[_vk] = ZY_VERIFY_POOL[_vk]; } }
+    for (var _gk in ZY_GM_LIST) { if (ZY_GM_LIST.hasOwnProperty(_gk)) { _verify.gmlist[_gk] = ZY_GM_LIST[_gk]; } }
+    for (var _ck4 in ZY_CLS_CRED) { if (ZY_CLS_CRED.hasOwnProperty(_ck4)) { _verify.clscred[_ck4] = ZY_CLS_CRED[_ck4]; } }
+  } catch (e) {}
+  api('/api/admin/builtin/zy', { method: 'POST', body: { data: window.__zyData, verify: _verify, remark: document.getElementById('zyRemark').value.trim() } })
     .then(function(d) {
       if (d.ok) {
         if (f) uploadOrigin(f, 'zy');
