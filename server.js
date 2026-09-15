@@ -102,6 +102,8 @@ const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } });
 */
 
 const app = express();
+const compression = require('compression');
+app.use(compression());
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true }));
 
