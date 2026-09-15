@@ -1715,6 +1715,24 @@ function noteSumCheck(note, tableAdd, total) {
   }
   return '';
 }
+/* 公式校验：按表格列关系 基础分*scale + 加分 - 减分 是否等于总分，不等红字提示 */
+function formulaCheck(base, add, sub, total, scale) {
+  scale = scale || 1;
+  var b = toNum(base); if (b === null) b = 0;
+  var a = toNum(add); if (a === null) a = 0;
+  var s2 = toNum(sub); if (s2 === null) s2 = 0;
+  var t = toNum(total); if (t === null) return '';
+  var calc = b * scale + a - s2;
+  if (Math.abs(calc - t) > 0.02) {
+    var parts = [];
+    if (scale !== 1) { parts.push('基础分 ' + b.toFixed(2) + '×' + scale); }
+    else { parts.push('基础分 ' + b.toFixed(2)); }
+    parts.push('加分 ' + a.toFixed(2));
+    if (s2 !== 0) { parts.push('减分 ' + s2.toFixed(2)); }
+    return '<div class="mod-warn">公式校验：' + parts.join(' + ').replace('+ -', '-') + ' = ' + calc.toFixed(2) + '，表格总分 ' + t.toFixed(2) + '，差 ' + (calc - t).toFixed(2) + '，请核对</div>';
+  }
+  return '';
+}
 function modCard(title, rowsHtml, total, formula) {
   var html = '<div class="mod-card"><div class="mod-head"><span>' + title + '</span><span class="mod-total">\u603b\u5206 ' + fmtNum(total) + '</span></div><div class="mod-body">' + rowsHtml;
   if (formula) { html += '</div><div class="mod-formula">' + formula + '</div></div>'; }
@@ -1736,6 +1754,7 @@ function buildZcModCards(stu) {
   if (stu.de.sub != null && stu.de.sub !== '' && toNum(stu.de.sub) !== 0) {
     deRows += addRow('\u51cf\u5206', '<span class="sub">\uff0d' + fmtNum(stu.de.sub) + '</span>');
   }
+  deRows += formulaCheck(stu.de.base, stu.de.add, stu.de.sub, stu.de.total, 1);
   html += modCard('\u5fb7\u80b2\uff08\u601d\u60f3\u9053\u5fb7\u7d20\u8d28\uff09', deRows, stu.de.total, '\u5fb7\u80b2\u603b\u5206 = \u57fa\u7840\u5206 + \u52a0\u5206 \u2212 \u51cf\u5206\uff1b\u52a0\u5206\u4ee5\u8868\u683c\u201c\u52a0\u5206\u201d\u5217\u4e3a\u51c6\uff0c\u660e\u7ec6\u89c1\u201c\u52a0\u5206\u5907\u6ce8\u201d\u5217\u3002');
   /* 科研 */
   var kyRows = addRow('\u52a0\u5206\uff08\u8868\u683c\u201c\u603b\u79d1\u6280\u5206\u201d\u5217\uff09', (stu.ky.total != null && fmt(stu.ky.total) !== '' ? '\uff0b' + fmtNum(stu.ky.total) : '\uff0b0'));
@@ -1750,6 +1769,7 @@ function buildZcModCards(stu) {
   if (stu.ty.sub != null && stu.ty.sub !== '' && toNum(stu.ty.sub) !== 0) {
     tyRows += addRow('\u51cf\u5206', '<span class="sub">\uff0d' + fmtNum(stu.ty.sub) + '</span>');
   }
+  tyRows += formulaCheck(stu.ty.base, stu.ty.add, stu.ty.sub, stu.ty.total, 1);
   html += modCard('\u4f53\u80b2\uff08\u8eab\u4f53\u7d20\u8d28\uff09', tyRows, stu.ty.total, '\u4f53\u80b2\u603b\u5206 = \u4f53\u6d4b\u4e0e\u8bfe\u5916\u8bad\u7ec3\u57fa\u7840\u5206 + \u52a0\u5206 \u2212 \u51cf\u5206\uff1b\u52a0\u5206\u4ee5\u8868\u683c\u201c\u52a0\u5206\u201d\u5217\u4e3a\u51c6\uff0c\u660e\u7ec6\u89c1\u201c\u52a0\u5206\u5907\u6ce8\u201d\u5217\u3002');
   /* 美育 */
   var myRows = addRow('\u57fa\u7840\u5206', fmtNum(stu.my.base));
@@ -1759,6 +1779,7 @@ function buildZcModCards(stu) {
   if (stu.my.sub != null && stu.my.sub !== '' && toNum(stu.my.sub) !== 0) {
     myRows += addRow('\u51cf\u5206', '<span class="sub">\uff0d' + fmtNum(stu.my.sub) + '</span>');
   }
+  myRows += formulaCheck(stu.my.base, stu.my.add, stu.my.sub, stu.my.total, 0.7);
   html += modCard('\u7f8e\u80b2\uff08\u5ba1\u7f8e\u7d20\u8d28\uff09', myRows, stu.my.total, '\u7f8e\u80b2\u603b\u5206 = \u57fa\u7840\u5206\u00d70.7 + \u52a0\u5206 \u2212 \u51cf\u5206\uff1b\u52a0\u5206\u4ee5\u8868\u683c\u201c\u52a0\u5206\u201d\u5217\u4e3a\u51c6\uff0c\u660e\u7ec6\u89c1\u201c\u52a0\u5206\u5907\u6ce8\u201d\u5217\u3002');
   /* 劳动 */
   var ldRows = addRow('\u52a0\u5206\uff08\u8868\u683c\u201c\u52a0\u5206\u201d\u5217\uff09', (stu.ld.add != null && fmt(stu.ld.add) !== '' ? '\uff0b' + fmtNum(stu.ld.add) : '\uff0b0'));
@@ -1767,6 +1788,7 @@ function buildZcModCards(stu) {
   if (stu.ld.sub != null && stu.ld.sub !== '' && toNum(stu.ld.sub) !== 0) {
     ldRows += addRow('\u51cf\u5206', '<span class="sub">\uff0d' + fmtNum(stu.ld.sub) + '</span>');
   }
+  ldRows += formulaCheck(0, stu.ld.add, stu.ld.sub, stu.ld.total, 1);
   html += modCard('\u52b3\u52a8\u7d20\u8d28\u4e0e\u5b9e\u8df5\u80fd\u529b', ldRows, stu.ld.total, '\u52b3\u52a8\u7d20\u8d28\u4e0e\u5b9e\u8df5\u80fd\u529b\u603b\u5206 = \u52a0\u5206 \u2212 \u51cf\u5206\uff1b\u52a0\u5206\u4ee5\u8868\u683c\u201c\u52a0\u5206\u201d\u5217\u4e3a\u51c6\uff0c\u660e\u7ec6\u89c1\u201c\u52a0\u5206\u5907\u6ce8\u201d\u5217\u3002');
   return html;
 }
