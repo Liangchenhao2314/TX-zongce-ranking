@@ -375,6 +375,25 @@ app.post('/api/admin/config', (req, res) => {
 });
 
 // 404 JSON 兜底
+// 在线人数统计：心跳维护
+const onlineClients = new Map(); // clientId -> lastSeenTs
+const ONLINE_TIMEOUT = 90 * 1000; // 90秒无心跳算离线
+app.post('/api/online/ping', (req, res) => {
+  const cid = (req.body.clientId || '').toString();
+  if (!cid) { return res.json({ ok: false }); }
+  onlineClients.set(cid, Date.now());
+  // 顺手清掉过期的
+  const now = Date.now();
+  for (const [k, v] of onlineClients) { if (now - v > ONLINE_TIMEOUT) onlineClients.delete(k); }
+  res.json({ ok: true, online: onlineClients.size });
+});
+app.get('/api/admin/online', (req, res) => {
+  if (!checkToken(req)) { return res.status(401).json({ ok: false, error: '未授权' }); }
+  const now = Date.now();
+  for (const [k, v] of onlineClients) { if (now - v > ONLINE_TIMEOUT) onlineClients.delete(k); }
+  res.json({ ok: true, online: onlineClients.size });
+});
+
 app.use('/api', (req, res) => res.status(404).json({ ok: false, error: '接口不存在' }));
 
 // 静态（非 api 路径）

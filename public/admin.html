@@ -67,6 +67,7 @@ tr:hover td { background: #f8fbfe; }
       <div>
         <h1 id="topTitle">管理后台</h1>
         <div class="muted" id="topSub">综合测评排名系统</div>
+        <div class="muted" style="margin-top:4px">当前在线：<b id="onlineCount" style="color:#1976D2">—</b> 人</div>
       </div>
       <button class="btn ghost sm" onclick="logout()">退出登录</button>
     </div>
@@ -192,6 +193,11 @@ function switchTab(t) {
 function loadAll() {
   api('/api/admin/builtin').then(function(d){ if (d.ok) renderVersion(d); });
   api('/api/admin/config').then(function(d){ if (d.ok) { document.getElementById('cfgTitle').value = d.config.title || ''; document.getElementById('cfgSub').value = d.config.subtitle || ''; } });
+  refreshOnline();
+  setInterval(refreshOnline, 10000);
+}
+function refreshOnline() {
+  api('/api/admin/online').then(function(d){ if (d.ok) document.getElementById('onlineCount').textContent = d.online; });
 }
 
 /* ============ 版本 ============ */
