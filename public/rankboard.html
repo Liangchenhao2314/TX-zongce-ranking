@@ -196,6 +196,7 @@
   .fs-reb { color: #1565c0; background: rgba(21, 101, 192, 0.10); }
   .fs-cheat { color: #e65100; background: rgba(230, 81, 0, 0.10); }
   .fs-buf { color: #1565c0; background: rgba(21, 101, 192, 0.10); }
+  .fs-abs { color: #6a1b9a; background: rgba(106, 27, 154, 0.10); }
   .board-table-wrap { overflow-x: auto; }
   table.rank-table { width: 100%; border-collapse: collapse; font-size: 14px; }
   .rank-table thead th {
@@ -768,13 +769,14 @@ function rowsToTranscript(rows) {
       for (var li2 = 0; li2 < lst.length; li2++) { if (lst[li2].mx) { isMxPe2 = true; break; } }
       var finalV = null, note = '';
       if (isZero) {
-        finalV = 0; byName[ka].cheat = true;
+        finalV = 0;
         var zr = '\u4f5c\u5f0a';
         for (var lz = 0; lz < lst.length; lz++) {
           if (lst[lz].bz.indexOf('\u7f3a\u8003') >= 0) { zr = '\u7f3a\u8003'; }
           else if (lst[lz].bz.indexOf('\u53d6\u6d88') >= 0) { zr = '\u53d6\u6d88\u8003\u8bd5\u8d44\u683c'; }
           else if (lst[lz].bz.indexOf('\u8fdd\u7eaa') >= 0) { zr = '\u8fdd\u7eaa'; }
         }
+        if (zr === '\u7f3a\u8003') { byName[ka].absent = true; } else { byName[ka].cheat = true; }
         note = zr + '\uff0c\u8be5\u8bfe\u7a0b\u6210\u7ee9\u63090\u5206\u8ba1\uff08\u7b2c16\u6761\uff09';
       }
       else if (isBuf && normalScore !== null) { finalV = normalScore; note = '\u8865\u8003\uff0c\u6309\u8865\u8003\u524d\u539f\u59cb\u5206' + normalScore + '\u8ba1\uff08\u7b2c16\u6761\uff09'; }
@@ -784,7 +786,8 @@ function rowsToTranscript(rows) {
       else { finalV = lst[0].score; }
       if (isMxPe2 && !note) { note = '\u4f53\u80b2\u8bfe\u514d\u4fee\uff0c\u630965\u5206\u5408\u683c\u8ba1\uff08\u7279\u522b\u8bf4\u660e\u00b7\u4f53\u80b2\uff09'; }
       crs[nca] = finalV;
-      if (finalV !== null && finalV < 60 && !isZero) { byName[ka].fail = true; }
+      if (finalV !== null && finalV < 60 && !isZero && !isBuf) { byName[ka].fail = true; }
+      if (isBuf && finalV !== null && finalV < 60) { byName[ka].buf = true; }
       if (note) { vc[nca] = { v: finalV, raw: lastRaw, note: note }; }
       else if (typeof lastRaw === 'string' && lastRaw in MAP95) { vc[nca] = { v: finalV, raw: lastRaw, grade: true }; }
       else { vc[nca] = { v: finalV, raw: lastRaw }; }
@@ -840,7 +843,7 @@ function rowsToTranscript(rows) {
           if (v !== null) { tot += v * TEMPLATE_COURSES[t][1]; w += TEMPLATE_COURSES[t][1]; }
         }
       }
-      out.push({ name: d.name, cls: d.cls, stid: d.stid || '', major: d.major || '', grade: d.grade || '', gpa: w > 0 ? Math.round(tot / w * 100000) / 100000 : 0, fail: !!d.fail, cheat: !!d.cheat, rebuild: !!d.rebuild });
+      out.push({ name: d.name, cls: d.cls, stid: d.stid || '', major: d.major || '', grade: d.grade || '', gpa: w > 0 ? Math.round(tot / w * 100000) / 100000 : 0, fail: !!d.fail, cheat: !!d.cheat, rebuild: !!d.rebuild, buf: !!d.buf, absent: !!d.absent });
     }
   }
   return out;
@@ -1440,7 +1443,7 @@ function renderBoard(bid, field) {
 function renderStats2(el, list, field) {
   if (!el) { return; }
   if (!list.length) { el.innerHTML = '\u5171 0 \u4eba'; return; }
-  var max = -Infinity, sum = 0, nFail = 0, nReb = 0, nCheat = 0, nBuf = 0, nHas = 0;
+  var max = -Infinity, sum = 0, nFail = 0, nReb = 0, nCheat = 0, nAbs = 0, nBuf = 0, nHas = 0;
   for (var i = 0; i < list.length; i++) {
     var v = list[i][field];
     if (v == null) { continue; }
@@ -1453,6 +1456,7 @@ function renderStats2(el, list, field) {
       if (list[j].fail) { nFail++; }
       if (list[j].rebuild) { nReb++; }
       if (list[j].cheat) { nCheat++; }
+      if (list[j].absent) { nAbs++; }
       if (list[j].buf) { nBuf++; }
     }
   } else {
@@ -1462,11 +1466,12 @@ function renderStats2(el, list, field) {
     }
   }
   var flags = '';
-  if (nFail || nReb || nCheat || nBuf) {
+  if (nFail || nReb || nCheat || nAbs || nBuf) {
     flags = ' <span class="flag-stat">' +
       (nFail ? '<i class="fs-fail">\u6302\u79d1 ' + nFail + '</i>' : '') +
       (nReb ? '<i class="fs-reb">\u91cd\u4fee ' + nReb + '</i>' : '') +
       (nCheat ? '<i class="fs-cheat">\u8fdd\u7eaa ' + nCheat + '</i>' : '') +
+      (nAbs ? '<i class="fs-abs">\u7f3a\u8003 ' + nAbs + '</i>' : '') +
       (nBuf ? '<i class="fs-buf">\u8865\u8003 ' + nBuf + '</i>' : '') +
       '</span>';
   }
