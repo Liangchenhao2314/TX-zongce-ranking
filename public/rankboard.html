@@ -195,6 +195,7 @@
   .fs-fail { color: #c62828; background: rgba(198, 40, 40, 0.10); }
   .fs-reb { color: #1565c0; background: rgba(21, 101, 192, 0.10); }
   .fs-cheat { color: #e65100; background: rgba(230, 81, 0, 0.10); }
+  .fs-buf { color: #1565c0; background: rgba(21, 101, 192, 0.10); }
   .board-table-wrap { overflow-x: auto; }
   table.rank-table { width: 100%; border-collapse: collapse; font-size: 14px; }
   .rank-table thead th {
@@ -1439,7 +1440,7 @@ function renderBoard(bid, field) {
 function renderStats2(el, list, field) {
   if (!el) { return; }
   if (!list.length) { el.innerHTML = '\u5171 0 \u4eba'; return; }
-  var max = -Infinity, sum = 0, nFail = 0, nReb = 0, nCheat = 0, nHas = 0;
+  var max = -Infinity, sum = 0, nFail = 0, nReb = 0, nCheat = 0, nBuf = 0, nHas = 0;
   for (var i = 0; i < list.length; i++) {
     var v = list[i][field];
     if (v == null) { continue; }
@@ -1452,6 +1453,7 @@ function renderStats2(el, list, field) {
       if (list[j].fail) { nFail++; }
       if (list[j].rebuild) { nReb++; }
       if (list[j].cheat) { nCheat++; }
+      if (list[j].buf) { nBuf++; }
     }
   } else {
     for (var k = 0; k < list.length; k++) {
@@ -1460,11 +1462,12 @@ function renderStats2(el, list, field) {
     }
   }
   var flags = '';
-  if (nFail || nReb || nCheat) {
+  if (nFail || nReb || nCheat || nBuf) {
     flags = ' <span class="flag-stat">' +
       (nFail ? '<i class="fs-fail">\u6302\u79d1 ' + nFail + '</i>' : '') +
       (nReb ? '<i class="fs-reb">\u91cd\u4fee ' + nReb + '</i>' : '') +
       (nCheat ? '<i class="fs-cheat">\u8fdd\u7eaa ' + nCheat + '</i>' : '') +
+      (nBuf ? '<i class="fs-buf">\u8865\u8003 ' + nBuf + '</i>' : '') +
       '</span>';
   }
   el.innerHTML = '\u5171 <b>' + list.length + '</b> \u4eba \u00b7 \u6700\u9ad8 <b>' + (nHas ? max.toFixed(2) : '\u2014') + '</b> \u00b7 \u5e73\u5747 <b>' + (nHas ? (sum / nHas).toFixed(2) : '\u2014') + '</b>' + flags;
