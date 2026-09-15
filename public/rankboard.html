@@ -64,6 +64,8 @@
     white-space: nowrap; line-height: 1.4;
   }
   .search-reset:hover { background: #cddffb; }
+  tr.hit { background: #e3f2fd !important; }
+  tr.flash-hit { box-shadow: inset 0 0 0 2px #1976D2; }
   .search-go {
     position: absolute; right: 60px; top: 50%; transform: translateY(-50%);
     border: none; background: #1976D2; color: #fff; font-size: 12px;
@@ -1549,13 +1551,17 @@ function scrollToHit() {
   var kw = document.getElementById('searchInput').value.trim();
   if (kw === '') { return; }
   var rows = document.querySelectorAll('.rank-table tbody tr.hit');
-  if (!rows.length) { return; }
+  if (!rows.length) {
+    alert('\u672a\u627e\u5230 \u201c' + kw + '\u201d \uff0c\u8bf7\u68c0\u67e5\u59d3\u540d\u662f\u5426\u6b63\u786e\uff0c\u6216\u5f53\u524d\u7b5b\u9009\u4e0b\u662f\u5426\u6709\u8be5\u5b66\u751f');
+    return;
+  }
   if (lastSearchScrollKw !== kw) {
     lastSearchScrollKw = kw;
-    var first = rows[0];
-    try { if (first.scrollIntoView) { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }
-    catch (e2) { if (first.scrollIntoView) { first.scrollIntoView(); } }
   }
+  var first = rows[0];
+  try { if (first.scrollIntoView) { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }
+  catch (e2) { if (first.scrollIntoView) { first.scrollIntoView(); } }
+  try { first.classList.add('flash-hit'); setTimeout(function(){ first.classList.remove('flash-hit'); }, 2000); } catch(e3) {}
 }
 
 /* ---------- 八、核验 ---------- */
