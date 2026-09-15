@@ -893,24 +893,26 @@ function parseModNote(note) {
   var out = [];
   if (!note) { return out; }
   var s = String(note).trim();
-  var re = /[(（]\s*[\uff0b+]\s*([\d.]+)\s*[)\uff09]/g;
+  /* 同时识别：1)括号里（+5） 2)直接+号 二等奖+6 3)级/等奖+分 b级5分、一等奖10分 */
+  var re = /[（(]\s*[＋+]\s*([\d.]+)\s*[）)]|[＋+]\s*([\d.]+)|(?:级|等奖|等)\s*([\d.]+)\s*分/g;
   var m, lastEnd = 0;
   while ((m = re.exec(s)) !== null) {
-    /* 名称：从上次结束到当前+分数括号开始 */
-    var nm = s.slice(lastEnd, m.index);
-    /* 清掉名称里的纯年份括号（如（2026）），保留其他说明括号（如（广西赛区）（主要参与）） */
-    nm = nm.replace(/[(（]\s*(19|20)\d{2}\s*[)\uff09]/g, '');
-    nm = nm.replace(/[\u3001\uff0c,;\u3002\n\r\s]+$/g, '').replace(/^[\s\u3001\uff0c,;、]+/, '').trim();
-    if (!nm) { nm = '\u672a\u547d\u540d\u9879'; }
-    out.push({ name: nm, score: parseFloat(m[1]) });
+    var score, nameStart = m.index;
+    if (m[1] !== undefined) { score = parseFloat(m[1]); }
+    else if (m[2] !== undefined) { score = parseFloat(m[2]); }
+    else { score = parseFloat(m[3]); nameStart = m.index; }
+    var nm = s.slice(lastEnd, nameStart);
+    nm = nm.replace(/[（(]\s*(19|20)\d{2}\s*[）)]/g, '');
+    nm = nm.replace(/[、，,;。\n\r\s]+$/g, '').replace(/^[\s、，,;、]+/, '').trim();
+    if (!nm) { nm = '未命名项'; }
+    out.push({ name: nm, score: score });
     lastEnd = re.lastIndex;
   }
-  /* 尾巴：没有+分数的部分（只写名称没标分数） */
   var tail = s.slice(lastEnd).trim();
   if (tail) {
     var nm2 = tail
-      .replace(/[(（]\s*[\uff0b+]?\s*[\d.]+\s*[)\uff09]/g, '')
-      .replace(/[\u3001\uff0c,;\u3002\n\r\s]+$/g, '')
+      .replace(/[（(]\s*[＋+]?\s*[\d.]+\s*[）)]/g, '')
+      .replace(/[、，,;。\n\r\s]+$/g, '')
       .trim();
     if (nm2) { out.push({ name: nm2, score: null }); }
   }
