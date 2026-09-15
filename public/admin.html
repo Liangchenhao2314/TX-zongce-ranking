@@ -40,6 +40,7 @@ th { background: #f4f7fb; color: #5c6b80; font-weight: 600; padding: 9px 10px; t
 td { padding: 9px 10px; border-bottom: 1px solid #f0f3f7; }
 tr:hover td { background: #f8fbfe; }
 .msg { font-size: 12.5px; color: #e53935; margin-top: 8px; min-height: 16px; }
+.msg.warn { color: #e53935; font-size: 15px; font-weight: bold; padding: 10px; background: #ffebee; border-radius: 6px; }
 .msg.ok { color: #2e7d32; }
 .stat { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; background: #e8f1fb; color: #1976D2; margin-right: 6px; }
 .muted { color: #8a97a8; font-size: 12.5px; }
@@ -163,7 +164,7 @@ function api(path, opts) {
   if (opts.form) { delete h['Content-Type']; return fetch(url, { method: opts.method || 'POST', body: opts.form }).then(function(r){return r.json();}); }
   return fetch(url, { method: opts.method || 'GET', headers: h, body: opts.body ? JSON.stringify(opts.body) : undefined }).then(function(r){return r.json();});
 }
-function msg(el, text, ok) { el.textContent = text; el.className = 'msg' + (ok ? ' ok' : ''); }
+function msg(el, text, ok) { el.textContent = text; el.className = 'msg' + (ok ? ' ok' : (ok === 'warn' ? ' warn' : '')); }
 function fmtSize(n) { if (n > 1048576) return (n/1048576).toFixed(2) + ' MB'; if (n > 1024) return (n/1024).toFixed(1) + ' KB'; return n + ' B'; }
 
 /* ============ 登录 ============ */
@@ -561,7 +562,15 @@ function parseZy() {
   readSheet(f, function(rows, err) {
     if (err) { msg(document.getElementById('zyMsg'), err); return; }
     var res = parseZyRows(rows);
-    if (res.error) { msg(document.getElementById('zyMsg'), res.error); return; }
+    if (res.error) {
+      var zcTry = parseZcRows(rows, f.name);
+      if (!zcTry.error && zcTry.students && zcTry.students.length) {
+        msg(document.getElementById('zyMsg'), '文件放错上传区域！你上传的是综测表文件，当前是【智能成绩单上传区】，请切换到下方「上传综测表」区域提交', 'warn');
+      } else {
+        msg(document.getElementById('zyMsg'), res.error);
+      }
+      return;
+    }
     window.__zyData = res.students;
     showZyPreview(res.students);
   });
@@ -899,8 +908,15 @@ function parseZc() {
   readSheet(f, function(rows, err) {
     if (err) { msg(document.getElementById('zcMsg'), err); return; }
     var res = parseZcRows(rows, f.name);
-    if (res.error) { msg(document.getElementById('zcMsg'), res.error); return; }
-    if (!res.students.length) { msg(document.getElementById('zcMsg'), '未解析到学生数据'); return; }
+    if (res.error || !res.students.length) {
+      var zyTry = parseZyRows(rows);
+      if (!zyTry.error && zyTry.students && zyTry.students.length) {
+        msg(document.getElementById('zcMsg'), '文件放错上传区域！你上传的是智能成绩单文件，当前是【综测表上传区】，请切换到上方「上传成绩单」区域提交', 'warn');
+      } else {
+        msg(document.getElementById('zcMsg'), res.error || '未解析到学生数据');
+      }
+      return;
+    }
     window.__zcData = { courses: res.courses, credits: res.credits, students: res.students };
     showZcPreview(window.__zcData);
   });
