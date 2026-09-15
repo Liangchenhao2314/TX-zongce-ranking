@@ -126,8 +126,8 @@ tr:hover td { background: #f8fbfe; }
         <h3>访客 / 管理员上传的源文件</h3>
         <div class="muted" style="margin-bottom:10px">文件以原格式保存，可直接下载（不转换、不改名）</div>
         <table>
-          <thead><tr><th>文件名</th><th>类型</th><th>大小</th><th>时间</th><th>备注</th><th>操作</th></tr></thead>
-          <tbody id="recBody"><tr><td colspan="6" class="muted">加载中…</td></tr></tbody>
+          <thead><tr><th>文件名</th><th>类型</th><th>大小</th><th>上传者IP</th><th>时间</th><th>备注</th><th>操作</th></tr></thead>
+          <tbody id="recBody"><tr><td colspan="7" class="muted">加载中…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -930,12 +930,12 @@ function loadRecords() {
   api('/api/admin/files').then(function(d) {
     if (!d.ok) { body.innerHTML = '<tr><td colspan="6" class="muted">' + (d.error || '加载失败') + '</td></tr>'; return; }
     var recs = d.records || [];
-    if (!recs.length) { body.innerHTML = '<tr><td colspan="6" class="muted">暂无上传记录</td></tr>'; return; }
+    if (!recs.length) { body.innerHTML = '<tr><td colspan="7" class="muted">暂无上传记录</td></tr>'; return; }
     body.innerHTML = recs.map(function(r) {
-      return '<tr><td>' + r.name + '</td><td>' + r.type + '</td><td>' + fmtSize(r.size) + '</td><td>' + r.time + '</td><td>' + (r.remark || '') + '</td>' +
+      return '<tr><td>' + r.name + '</td><td>' + r.type + '</td><td>' + fmtSize(r.size) + '</td><td>' + (r.ip || '—') + '</td><td>' + r.time + '</td><td>' + (r.remark || '') + '</td>' +
         '<td><button class="btn ghost sm" onclick="dlRec(\'' + r.id + '\')">下载</button> <button class="btn danger sm" onclick="delRec(\'' + r.id + '\')">删除</button></td></tr>';
     }).join('');
-  }).catch(function(){ body.innerHTML = '<tr><td colspan="6" class="muted">网络错误</td></tr>'; });
+  }).catch(function(){ body.innerHTML = '<tr><td colspan="7" class="muted">网络错误</td></tr>'; });
 }
 function dlRec(id) {
   fetch('/api/admin/files/' + id + '/download?token=' + encodeURIComponent(TOKEN))

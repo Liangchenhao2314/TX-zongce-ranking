@@ -84,6 +84,11 @@ function saveRecord(req, file, key, url, parsed) {
   const records = loadRecords();
   const ftype = (req.body.type || '').toString();
   const remark = (req.body.remark || '').toString();
+  // 取上传者真实IP（Railway等反代后从 x-forwarded-for 取第一个）
+  let clientIp = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.ip || req.connection.remoteAddress || '';
+  if (typeof clientIp === 'string' && clientIp.indexOf(',') >= 0) { clientIp = clientIp.split(',')[0].trim(); }
+  if (clientIp === '::1') clientIp = '127.0.0.1';
+  if (typeof clientIp === 'string') clientIp = clientIp.replace('::ffff:', '');
   const rec = {
     id: crypto.randomBytes(8).toString('hex'),
     name: decodeOriginalName(file.originalname) || '未命名',
@@ -93,6 +98,7 @@ function saveRecord(req, file, key, url, parsed) {
     size: file.size,
     time: new Date().toLocaleString('zh-CN', { hour12: false }),
     ts: Date.now(),
+    ip: clientIp,
     remark
   };
   if (parsed) { rec.parsed = parsed; }
