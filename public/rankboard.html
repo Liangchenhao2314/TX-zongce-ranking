@@ -1572,7 +1572,7 @@ function buildZyDetail(key, name, cls, stid) {
       else if (m.note) { row2.v = m.v; row2.note = m.note; }
       else if (typeof m.v !== 'number') { row2.v = MAP95[m.v]; row2.raw = m.v; row2.note = '\u6210\u7ee9\u5355\u7b49\u7ea7"' + m.v + '"\uff0c\u6309' + MAP95[m.v] + '\u8ba1'; }
       else { row2.v = m.v; }
-      if (row2.v !== null && row2.v < 60 && row2.note.indexOf('\u4f5c\u5f0a') < 0 && row2.note.indexOf('\u7f3a\u8003') < 0 && row2.note.indexOf('\u53d6\u6d88') < 0) {
+      if (row2.v !== null && row2.v < 60 && row2.note.indexOf('\u4f5c\u5f0a') < 0 && row2.note.indexOf('\u7f3a\u8003') < 0 && row2.note.indexOf('\u53d6\u6d88') < 0 && row2.note.indexOf('\u8865\u8003') < 0) {
         row2.note = (row2.note ? row2.note + '\uff1b' : '') + '\u4e0d\u53ca\u683c\uff0c\u6302\u79d1';
       }
       if (row2.v !== null) { row2.prod = +(row2.v * cr2).toFixed(2); tot += row2.prod; w += cr2; } else { row2.prod = null; }
@@ -1588,7 +1588,7 @@ function buildZyDetail(key, name, cls, stid) {
       else if (dd.notes && dd.notes[i]) { row.v = sv; row.raw = sv; row.note = dd.notes[i]; }
       else if (typeof sv === 'string') { row.v = MAP95[sv]; row.raw = sv; row.note = '\u6210\u7ee9\u5355\u7b49\u7ea7"' + sv + '"\uff0c\u6309' + MAP95[sv] + '\u8ba1'; }
       else { row.v = sv; }
-      if (row.v !== null && row.v < 60 && row.v !== 0 && row.note.indexOf('\u4e0d\u53ca\u683c') < 0) {
+      if (row.v !== null && row.v < 60 && row.v !== 0 && row.note.indexOf('\u4e0d\u53ca\u683c') < 0 && row.note.indexOf('\u8865\u8003') < 0) {
         row.note = (row.note ? row.note + '\uff1b' : '') + '\u4e0d\u53ca\u683c\uff0c\u6302\u79d1';
       }
       if (row.v !== null) { row.prod = +(row.v * cr).toFixed(2); tot += row.prod; w += cr; } else { row.prod = null; }
@@ -1656,7 +1656,7 @@ function buildZcZyTable(stu) {
       if (v !== null && typeof sc === 'string' && (rawTxt in MAP95)) { note = '\u7b49\u7ea7"' + rawTxt + '"\uff0c\u6309' + v + '\u8ba1'; }
       else if (v === null) { note = '\u975e\u6570\u503c\u6210\u7ee9\uff0c\u6682\u4e0d\u8ba1\u5165'; }
     } else { v = sc; }
-    if (v !== null && v < 60 && v !== 0) { note = (note ? note + '\uff1b' : '') + '\u4e0d\u53ca\u683c\uff0c\u6302\u79d1'; }
+    if (v !== null && v < 60 && v !== 0 && note.indexOf('\u8865\u8003') < 0 && note.indexOf('\u4f5c\u5f0a') < 0 && note.indexOf('\u7f3a\u8003') < 0) { note = (note ? note + '\uff1b' : '') + '\u4e0d\u53ca\u683c\uff0c\u6302\u79d1'; }
     var rawShow = (typeof sc === 'string' && !/^-?\d+(\.\d+)?$/.test(rawTxt)) ? rawTxt : undefined;
     rows.push({ c: cn, cr: cr, v: v, raw: rawShow, note: note });
     if (v !== null) { var pr = +(v * cr).toFixed(2); tot += pr; rows[rows.length - 1].prod = pr; w += cr; } else { rows[rows.length - 1].prod = null; }
