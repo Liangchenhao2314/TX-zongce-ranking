@@ -222,6 +222,8 @@
   .f-flag { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11.5px; font-weight: 600; color: #c62828; background: rgba(198, 40, 40, 0.10); margin: 0 2px; }
   .f-flag2 { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11.5px; font-weight: 600; color: #e65100; background: rgba(230, 81, 0, 0.10); margin: 0 2px; }
   .f-flag3 { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11.5px; font-weight: 600; color: #1565c0; background: rgba(21, 101, 192, 0.10); margin: 0 2px; }
+  .f-flag4 { color: #6a1b9a; background: rgba(106,27,154,0.12); margin-left:4px; padding:1px 5px; border-radius:3px; font-size:11px; }
+  .f-flag5 { color: #1565c0; background: rgba(21,101,192,0.12); margin-left:4px; padding:1px 5px; border-radius:3px; font-size:11px; }
   .rank-table tbody tr:last-child td { border-bottom: none; }
   .rank-badge {
     display: inline-block;
@@ -1386,7 +1388,9 @@ function warnFlags(s) {
   if (MODE === 'zy') {
     if (s.fail) { flag += '<span class="f-flag">\u6302\u79d1</span>'; }
     if (s.cheat) { flag += '<span class="f-flag2">\u8fdd\u7eaa</span>'; }
+    if (s.absent) { flag += '<span class="f-flag4">\u7f3a\u8003</span>'; }
     if (s.rebuild) { flag += '<span class="f-flag3">\u91cd\u4fee</span>'; }
+    if (s.buf) { flag += '<span class="f-flag5">\u8865\u8003</span>'; }
   } else {
     var wn = String(s.warn || '');
     if (wn.indexOf('\u8fdd\u7eaa') >= 0) { flag += '<span class="f-flag2">\u8fdd\u7eaa</span>'; }
