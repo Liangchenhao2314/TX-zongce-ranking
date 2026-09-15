@@ -781,7 +781,7 @@ function rowsToTranscript(rows) {
         if (zr === '\u7f3a\u8003') { byName[ka].absent = true; } else { byName[ka].cheat = true; }
         note = zr + '\uff0c\u8be5\u8bfe\u7a0b\u6210\u7ee9\u63090\u5206\u8ba1\uff08\u7b2c16\u6761\uff09';
       }
-      else if (isBuf && normalScore !== null) { finalV = normalScore; note = '\u8865\u8003\uff0c\u6309\u8865\u8003\u524d\u539f\u59cb\u5206' + normalScore + '\u8ba1\uff08\u7b2c16\u6761\uff09'; }
+      else if (isBuf && normalScore !== null) { finalV = normalScore; var _bp = (bufScore !== null && bufScore >= 60); note = (_bp ? '\u8865\u8003\u901a\u8fc7\uff0c' : '\u8865\u8003\u672a\u901a\u8fc7\uff0c\u4ecd\u6302\u79d1\uff0c') + '\u6309\u8865\u8003\u524d\u539f\u59cb\u5206' + normalScore + '\u8ba1\uff08\u7b2c16\u6761\uff09'; }
       else if (isBuf) { finalV = bufScore; note = '\u8865\u8003\uff08\u65e0\u539f\u59cb\u5206\u8bb0\u5f55\uff0c\u6309\u8865\u8003\u5206' + bufScore + '\u8ba1\uff09'; }
       else if (isHuan) { finalV = huanScore; note = '\u7f13\u8003\uff08\u7ecf\u5ba1\u6279\uff09\uff0c\u6309\u7f13\u8003\u6210\u7ee9' + huanScore + '\u8ba1'; }
       else if (normalScore !== null) { finalV = normalScore; }
@@ -791,6 +791,7 @@ function rowsToTranscript(rows) {
       var bufPass = (isBuf && bufScore !== null && bufScore >= 60);
       if (finalV !== null && finalV < 60 && !isZero && !bufPass) { byName[ka].fail = true; }
       if (bufPass) { byName[ka].buf = true; }
+      if (!note && finalV !== null && finalV < 60 && !isZero) { note = '\u6302\u79d1\uff08\u672a\u8865\u8003/\u5f85\u91cd\u4fee\uff09'; }
       if (note) { vc[nca] = { v: finalV, raw: lastRaw, note: note }; }
       else if (typeof lastRaw === 'string' && lastRaw in MAP95) { vc[nca] = { v: finalV, raw: lastRaw, grade: true }; }
       else { vc[nca] = { v: finalV, raw: lastRaw }; }
