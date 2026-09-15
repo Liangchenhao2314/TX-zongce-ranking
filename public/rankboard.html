@@ -277,6 +277,7 @@
 .modal-summary { display: flex; gap: 8px; padding: 4px 20px 12px; flex-wrap: wrap; }
 .sum-chip { background: #eef6ff; border: 1px solid #cfe5fb; color: #1976D2; font-size: 13px; padding: 6px 12px; border-radius: 8px; }
 .modal-table-wrap { overflow: auto; padding: 0 20px 20px; }
+.rank-table tbody tr { scroll-margin-top: 80px; }
 .verify-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .verify-table th { background: #f4f7fb; color: #5c6b80; font-weight: 600; padding: 8px 10px; text-align: center; position: sticky; top: 0; }
 .verify-table td { padding: 7px 10px; text-align: center; border-bottom: 1px solid #f0f3f7; }
@@ -1547,21 +1548,41 @@ function applySearchHighlight() {
   if (kw !== '') { if (btn) { btn.style.display = 'inline-block'; } }
   else { if (btn) { btn.style.display = 'none'; } lastSearchScrollKw = ''; }
 }
+var searchHitIdx = 0;
+function showSearchModal(msg) {
+  var old = document.getElementById('searchModal');
+  if (old) { old.remove(); }
+  var div = document.createElement('div');
+  div.id = 'searchModal';
+  div.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  div.innerHTML = '<div style="background:#fff;border-radius:12px;padding:28px 36px;max-width:420px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.2);">' +
+    '<div style="font-size:18px;font-weight:700;color:#c62828;margin-bottom:12px;">\u672a\u627e\u5230</div>' +
+    '<div style="font-size:14px;color:#555;line-height:1.6;margin-bottom:20px;">' + msg + '</div>' +
+    '<button onclick="this.parentElement.parentElement.remove()" style="padding:8px 28px;background:#1976D2;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;">\u77e5\u9053\u4e86</button>' +
+    '</div>';
+  document.body.appendChild(div);
+  div.addEventListener('click', function(e){ if(e.target===div){ div.remove(); } });
+}
 function scrollToHit() {
   var kw = document.getElementById('searchInput').value.trim();
   if (kw === '') { return; }
   var rows = document.querySelectorAll('.rank-table tbody tr.hit');
   if (!rows.length) {
-    alert('\u672a\u627e\u5230 \u201c' + kw + '\u201d \uff0c\u8bf7\u68c0\u67e5\u59d3\u540d\u662f\u5426\u6b63\u786e\uff0c\u6216\u5f53\u524d\u7b5b\u9009\u4e0b\u662f\u5426\u6709\u8be5\u5b66\u751f');
+    showSearchModal('\u672a\u627e\u5230 \u201c' + kw + '\u201d\uff0c\u8bf7\u68c0\u67e5\u59d3\u540d\u662f\u5426\u6b63\u786e\uff0c\u6216\u5f53\u524d\u7b5b\u9009\u4e0b\u662f\u5426\u6709\u8be5\u5b66\u751f');
+    searchHitIdx = 0;
     return;
   }
   if (lastSearchScrollKw !== kw) {
     lastSearchScrollKw = kw;
+    searchHitIdx = 0;
+  } else {
+    searchHitIdx++;
+    if (searchHitIdx >= rows.length) { searchHitIdx = 0; }
   }
-  var first = rows[0];
-  try { if (first.scrollIntoView) { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }
-  catch (e2) { if (first.scrollIntoView) { first.scrollIntoView(); } }
-  try { first.classList.add('flash-hit'); setTimeout(function(){ first.classList.remove('flash-hit'); }, 2000); } catch(e3) {}
+  var target = rows[searchHitIdx];
+  try { if (target.scrollIntoView) { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }
+  catch (e2) { if (target.scrollIntoView) { target.scrollIntoView(); } }
+  try { target.classList.add('flash-hit'); setTimeout(function(){ target.classList.remove('flash-hit'); }, 2000); } catch(e3) {}
 }
 
 /* ---------- 八、核验 ---------- */
