@@ -125,9 +125,10 @@ tr:hover td { background: #f8fbfe; }
       <div class="card">
         <h3>访客 / 管理员上传的源文件</h3>
         <div class="muted" style="margin-bottom:10px">文件以原格式保存，可直接下载（不转换、不改名）</div>
+        <div style="margin-bottom:10px"><button class="btn danger sm" onclick="delBatchRecs()">批量删除</button> <span class="muted" style="margin-left:8px" id="recSelInfo"></span></div>
         <table>
-          <thead><tr><th>文件名</th><th>类型</th><th>大小</th><th>上传者IP</th><th>时间</th><th>备注</th><th>操作</th></tr></thead>
-          <tbody id="recBody"><tr><td colspan="7" class="muted">加载中…</td></tr></tbody>
+          <thead><tr><th><input type="checkbox" id="recCheckAll" onclick="toggleAllRecs(this)"></th><th>文件名</th><th>类型</th><th>大小</th><th>上传者IP</th><th>时间</th><th>备注</th><th>操作</th></tr></thead>
+          <tbody id="recBody"><tr><td colspan="8" class="muted">加载中…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -930,12 +931,12 @@ function loadRecords() {
   api('/api/admin/files').then(function(d) {
     if (!d.ok) { body.innerHTML = '<tr><td colspan="6" class="muted">' + (d.error || '加载失败') + '</td></tr>'; return; }
     var recs = d.records || [];
-    if (!recs.length) { body.innerHTML = '<tr><td colspan="7" class="muted">暂无上传记录</td></tr>'; return; }
+    if (!recs.length) { body.innerHTML = '<tr><td colspan="8" class="muted">暂无上传记录</td></tr>'; return; }
     body.innerHTML = recs.map(function(r) {
-      return '<tr><td>' + r.name + '</td><td>' + r.type + '</td><td>' + fmtSize(r.size) + '</td><td>' + (r.ip || '—') + '</td><td>' + r.time + '</td><td>' + (r.remark || '') + '</td>' +
+      return '<tr><td><input type="checkbox" class="rec-cb" value="' + r.id + '" onclick="updateRecSelInfo()"></td><td>' + r.name + '</td><td>' + r.type + '</td><td>' + fmtSize(r.size) + '</td><td>' + (r.ip || '—') + '</td><td>' + r.time + '</td><td>' + (r.remark || '') + '</td>' +
         '<td><button class="btn ghost sm" onclick="dlRec(\'' + r.id + '\')">下载</button> <button class="btn danger sm" onclick="delRec(\'' + r.id + '\')">删除</button></td></tr>';
     }).join('');
-  }).catch(function(){ body.innerHTML = '<tr><td colspan="7" class="muted">网络错误</td></tr>'; });
+  }).catch(function(){ body.innerHTML = '<tr><td colspan="8" class="muted">网络错误</td></tr>'; });
 }
 function dlRec(id) {
   fetch('/api/admin/files/' + id + '/download?token=' + encodeURIComponent(TOKEN))
@@ -960,6 +961,28 @@ function delRec(id) {
   if (!confirm('确认删除该上传记录与文件？')) return;
   api('/api/admin/files/' + id, { method: 'DELETE', body: {} }).then(function(d) {
     if (d.ok) loadRecords();
+  });
+}
+function toggleAllRecs(master) {
+  var cbs = document.querySelectorAll('.rec-cb');
+  for (var i = 0; i < cbs.length; i++) { cbs[i].checked = master.checked; }
+  updateRecSelInfo();
+}
+function updateRecSelInfo() {
+  var cbs = document.querySelectorAll('.rec-cb');
+  var n = 0;
+  for (var i = 0; i < cbs.length; i++) { if (cbs[i].checked) n++; }
+  document.getElementById('recSelInfo').textContent = n ? '已选 ' + n + ' 项' : '';
+}
+function delBatchRecs() {
+  var cbs = document.querySelectorAll('.rec-cb:checked');
+  if (!cbs.length) { alert('请先勾选要删除的记录'); return; }
+  var ids = [];
+  for (var i = 0; i < cbs.length; i++) { ids.push(cbs[i].value); }
+  if (!confirm('确认批量删除选中的 ' + ids.length + ' 条记录与文件？')) return;
+  api('/api/admin/files/batch-delete', { method: 'POST', body: { ids: ids } }).then(function(d) {
+    if (d.ok) { alert('已删除 ' + (d.removed || 0) + ' 条'); loadRecords(); }
+    else { alert(d.error || '删除失败'); }
   });
 }
 

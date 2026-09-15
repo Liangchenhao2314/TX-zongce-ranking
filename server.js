@@ -247,6 +247,25 @@ app.delete('/api/admin/files/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// 批量删除上传记录
+app.post('/api/admin/files/batch-delete', (req, res) => {
+  if (!checkToken(req)) { return res.status(401).json({ ok: false, error: '未授权' }); }
+  const ids = req.body.ids;
+  if (!Array.isArray(ids) || !ids.length) { return res.status(400).json({ ok: false, error: '未选择记录' }); }
+  const recs = loadJSON(RECORDS_FILE, []);
+  const idSet = new Set(ids.map(String));
+  let removed = 0;
+  for (let i = recs.length - 1; i >= 0; i--) {
+    if (idSet.has(recs[i].id)) {
+      try { fs.unlinkSync(path.join(UPLOADS, recs[i].stored)); } catch (e) {}
+      recs.splice(i, 1);
+      removed++;
+    }
+  }
+  saveJSON(RECORDS_FILE, recs);
+  res.json({ ok: true, removed: removed });
+});
+
 // 内置数据管理：查看版本/历史
 app.get('/api/admin/builtin', (req, res) => {
   if (!checkToken(req)) { return res.status(401).json({ ok: false, error: '未授权' }); }
