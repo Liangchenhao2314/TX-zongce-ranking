@@ -788,8 +788,9 @@ function rowsToTranscript(rows) {
       else { finalV = lst[0].score; }
       if (isMxPe2 && !note) { note = '\u4f53\u80b2\u8bfe\u514d\u4fee\uff0c\u630965\u5206\u5408\u683c\u8ba1\uff08\u7279\u522b\u8bf4\u660e\u00b7\u4f53\u80b2\uff09'; }
       crs[nca] = finalV;
-      if (finalV !== null && finalV < 60 && !isZero && !isBuf) { byName[ka].fail = true; }
-      if (isBuf && finalV !== null && finalV < 60) { byName[ka].buf = true; }
+      var bufPass = (isBuf && bufScore !== null && bufScore >= 60);
+      if (finalV !== null && finalV < 60 && !isZero && !bufPass) { byName[ka].fail = true; }
+      if (bufPass) { byName[ka].buf = true; }
       if (note) { vc[nca] = { v: finalV, raw: lastRaw, note: note }; }
       else if (typeof lastRaw === 'string' && lastRaw in MAP95) { vc[nca] = { v: finalV, raw: lastRaw, grade: true }; }
       else { vc[nca] = { v: finalV, raw: lastRaw }; }
