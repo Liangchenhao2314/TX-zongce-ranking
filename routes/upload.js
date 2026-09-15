@@ -35,8 +35,11 @@ function decodeOriginalName(name) {
 const storage = multer.diskStorage({
   destination: function (req, file, cb) { cb(null, TMP_DIR); },
   filename: function (req, file, cb) {
-    const ext = path.extname(decodeOriginalName(file.originalname || '')).toLowerCase() || '';
-    const name = Date.now() + '-' + crypto.randomBytes(8).toString('hex') + ext;
+    const orig = decodeOriginalName(file.originalname || '') || '未命名';
+    const ext = path.extname(orig).toLowerCase() || '';
+    const base = path.basename(orig, ext).replace(/[\\/:*?"<>|]/g, '_') || 'file';
+    // 用原始文件名，重名时加时间戳前缀
+    const name = base + '-' + Date.now() + crypto.randomBytes(4).toString('hex') + ext;
     cb(null, name);
   }
 });
