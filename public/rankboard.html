@@ -280,6 +280,11 @@
 .verify-table td { padding: 7px 10px; text-align: center; border-bottom: 1px solid #f0f3f7; }
 .verify-table tr.total-row td { background: #f4f9ff; font-weight: 700; color: #1976D2; }
 .v-note { color: #b26a00; font-size: 12px; }
+.v-note-fail { color: #c62828; font-size: 12px; font-weight: 600; }
+.v-note-buf { color: #00838f; font-size: 12px; font-weight: 600; }
+.v-note-abs { color: #6a1b9a; font-size: 12px; font-weight: 600; }
+.v-note-cheat { color: #e65100; font-size: 12px; font-weight: 600; }
+.v-note-reb { color: #1565c0; font-size: 12px; font-weight: 600; }
 .v-miss { color: #9aa8b8; }
   .v-fail { color: #d32f2f; font-weight: 600; }
 .sel-bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 6px 0 2px; }
@@ -1622,7 +1627,15 @@ function verifyTableHtml(rows, tot, w, avgTxt) {
       if (r.v < 60) { vc = '<span class="v-fail">' + vc + '</span>'; }
       pc = r.prod.toFixed(2);
     }
-    html += '<tr><td>' + (i + 1) + '</td><td>' + esc(r.c) + '</td><td>' + r.cr.toFixed(2) + '</td><td>' + vc + '</td><td>' + pc + '</td><td class="v-note">' + esc(r.note) + '</td></tr>';
+    var _nc = 'v-note';
+    var _nt = r.note || '';
+    if (_nt.indexOf('\u6302\u79d1') >= 0 || _nt.indexOf('\u4e0d\u53ca\u683c') >= 0) { _nc = 'v-note-fail'; }
+    else if (_nt.indexOf('\u8865\u8003\u901a\u8fc7') >= 0) { _nc = 'v-note-buf'; }
+    else if (_nt.indexOf('\u8865\u8003\u672a\u901a\u8fc7') >= 0 || _nt.indexOf('\u8865\u8003\uff0c') >= 0) { _nc = 'v-note-fail'; }
+    else if (_nt.indexOf('\u7f3a\u8003') >= 0) { _nc = 'v-note-abs'; }
+    else if (_nt.indexOf('\u4f5c\u5f0a') >= 0 || _nt.indexOf('\u8fdd\u7eaa') >= 0 || _nt.indexOf('\u53d6\u6d88') >= 0) { _nc = 'v-note-cheat'; }
+    else if (_nt.indexOf('\u91cd\u4fee') >= 0) { _nc = 'v-note-reb'; }
+    html += '<tr><td>' + (i + 1) + '</td><td>' + esc(r.c) + '</td><td>' + r.cr.toFixed(2) + '</td><td>' + vc + '</td><td>' + pc + '</td><td class="' + _nc + '">' + esc(r.note) + '</td></tr>';
   }
   html += '<tr class="total-row"><td colspan="2">\u5408\u8ba1</td><td>' + w.toFixed(2) + '</td><td>\u2014</td><td>' + tot.toFixed(2) + '</td><td>\u5e73\u5747 ' + avgTxt + '</td></tr>';
   html += '</tbody></table>';
