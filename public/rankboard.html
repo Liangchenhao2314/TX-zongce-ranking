@@ -1083,6 +1083,20 @@ function rowsToZongce(rows, fileClsHint) {
   if (cLdTotal < 0) { cLdTotal = findColExact(['\u52b3\u52a8\u603b\u5206']); }
   if (cDeTotal < 0) { cDeTotal = 7; }
   if (cZyTotal < 0) { cZyTotal = 33; }
+  /* 动态收缩课程列范围：在学分行定的粗范围内，
+     表头为空或含"总分/平均分/均分/合计/总计/智育/德育/科研/体育/美育/劳动/能力/违纪/挂科/备注"等汇总/模块词的列不算课程 */
+  if (hc >= 0) {
+    var hdrRow = rows[hc];
+    var lastCourseCol = -1, firstCourseCol = -1;
+    for (var cc3 = cStart; cc3 <= cEnd && cc3 < hdrRow.length; cc3++) {
+      var hn = fmt(hdrRow[cc3]);
+      if (!hn) { continue; }
+      if (/(总分|平均分|均分|合计|总计|智育|德育|科研|体育|美育|劳动|能力|违纪|挂科|备注|评语|备注)/.test(hn)) { continue; }
+      if (firstCourseCol < 0) { firstCourseCol = cc3; }
+      lastCourseCol = cc3;
+    }
+    if (firstCourseCol >= 0) { cStart = firstCourseCol; cEnd = lastCourseCol; }
+  }
   if (cKyTotal < 0) { cKyTotal = 36; }
   if (cTyTotal < 0) { cTyTotal = 45; }
   if (cMyTotal < 0) { cMyTotal = 50; }
