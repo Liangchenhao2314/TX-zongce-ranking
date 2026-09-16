@@ -85,7 +85,7 @@ tr:hover td { background: #f8fbfe; }
         <h3>上传新智育数据（成绩单）</h3>
         <div class="muted" style="margin-bottom:10px">支持 .xlsx / .xls / .csv / .json 表格文件；上传后解析预览，确认后设为全站生效（访客打开即看到新数据），原文件同时保存到上传记录</div>
         <div class="row">
-          <input type="file" id="zyFile" accept=".xlsx,.xls,.csv,.json">
+          <input type="file" id="zyFile" accept=".xlsx,.xls,.csv,.json" multiple>
           <button class="btn" onclick="parseZy()">解析预览</button>
         </div>
         <div id="zyPreview"></div>
@@ -100,7 +100,7 @@ tr:hover td { background: #f8fbfe; }
         <h3>上传新综测数据（综测表）</h3>
         <div class="muted" style="margin-bottom:10px">支持 .xlsx / .xls / .csv / .json（综测表格式：班级/学号/姓名/各科成绩/智育平均分/综测总分/德智体美劳加分）；.json 为最佳格式</div>
         <div class="row">
-          <input type="file" id="zcFile" accept=".xlsx,.xls,.csv,.json">
+          <input type="file" id="zcFile" accept=".xlsx,.xls,.csv,.json" multiple>
           <button class="btn" onclick="parseZc()">解析预览</button>
         </div>
         <div id="zcPreview"></div>
@@ -543,38 +543,51 @@ function parseZyRows(rows) {
 }
 
 function parseZy() {
-  var f = document.getElementById('zyFile').files[0];
-  if (!f) { msg(document.getElementById('zyMsg'), '请先选择文件'); return; }
-  var ext = f.name.toLowerCase().split('.').pop();
-  if (ext === 'json') {
-    var reader = new FileReader();
-    reader.onload = function(e) {
-      try {
-        var d = JSON.parse(e.target.result);
-        if (!Array.isArray(d)) throw new Error('JSON 必须是学生数组');
-        window.__zyData = d;
-        showZyPreview(d);
-      } catch (err) { msg(document.getElementById('zyMsg'), 'JSON 解析失败：' + err.message); }
-    };
-    reader.readAsText(f);
-    return;
+  var fs = document.getElementById('zyFile').files;
+  if (!fs || !fs.length) { msg(document.getElementById('zyMsg'), '请先选择文件（可多选）'); return; }
+  var all = [], done = 0, total = fs.length, errored = false;
+  function next() {
+    if (done < total) { processOne(fs[done++]); }
+    else {
+      if (errored) return;
+      if (!all.length) { msg(document.getElementById('zyMsg'), '未解析到学生数据'); return; }
+      all.sort(function(a,b){return b.gpa - a.gpa;});
+      window.__zyData = all;
+      showZyPreview(all);
+    }
   }
-  readSheet(f, function(rows, err) {
-    if (err) { msg(document.getElementById('zyMsg'), err); return; }
-    var res = parseZyRows(rows);
-    if (res.error) {
-      var zcTry = parseZcRows(rows, f.name);
-      if (!zcTry.error && zcTry.students && zcTry.students.length) {
-        msg(document.getElementById('zyMsg'), '文件放错上传区域！你上传的是综测表文件，当前是【智能成绩单上传区】，请切换到下方「上传综测表」区域提交', 'warn');
-      } else {
-        msg(document.getElementById('zyMsg'), res.error);
-      }
+  function processOne(f) {
+    var ext = f.name.toLowerCase().split('.').pop();
+    if (ext === 'json') {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          var d = JSON.parse(e.target.result);
+          if (!Array.isArray(d)) throw new Error('JSON 必须是学生数组');
+          all = all.concat(d);
+        } catch (err) { errored = true; msg(document.getElementById('zyMsg'), f.name + ' JSON 解析失败：' + err.message); return; }
+        next();
+      };
+      reader.readAsText(f);
       return;
     }
-    window.__zyData = res.students;
-    showZyPreview(res.students);
-  });
+    readSheet(f, function(rows, err) {
+      if (err) { errored = true; msg(document.getElementById('zyMsg'), f.name + ': ' + err); return; }
+      var res = parseZyRows(rows);
+      if (res.error) {
+        var zcTry = parseZcRows(rows, f.name);
+        if (!zcTry.error && zcTry.students && zcTry.students.length) {
+          errored = true; msg(document.getElementById('zyMsg'), f.name + ' 是综测表，请切换到下方「上传综测表」区域', 'warn');
+        } else { errored = true; msg(document.getElementById('zyMsg'), f.name + ': ' + res.error); }
+        return;
+      }
+      all = all.concat(res.students);
+      next();
+    });
+  }
+  next();
 }
+
 function showZyPreview(st) {
   if (!Array.isArray(st)) { st = []; }
   var nf = st.filter(function(s){ return s.fail; }).length;
@@ -889,38 +902,52 @@ function parseZcRows(rows, fileClsHint) {
 }
 
 function parseZc() {
-  var f = document.getElementById('zcFile').files[0];
-  if (!f) { msg(document.getElementById('zcMsg'), '请先选择文件'); return; }
-  var ext = f.name.toLowerCase().split('.').pop();
-  if (ext === 'json') {
-    var reader = new FileReader();
-    reader.onload = function(e) {
-      try {
-        var d = JSON.parse(e.target.result);
-        if (!d.students || !Array.isArray(d.students)) throw new Error('JSON 需包含 students 数组');
-        window.__zcData = d;
-        showZcPreview(d);
-      } catch (err) { msg(document.getElementById('zcMsg'), 'JSON 解析失败：' + err.message); }
-    };
-    reader.readAsText(f);
-    return;
+  var fs = document.getElementById('zcFile').files;
+  if (!fs || !fs.length) { msg(document.getElementById('zcMsg'), '请先选择文件（可多选）'); return; }
+  var all = [], courses = null, credits = null, done = 0, total = fs.length, errored = false;
+  function next() {
+    if (done < total) { processOne(fs[done++]); }
+    else {
+      if (errored) return;
+      if (!all.length) { msg(document.getElementById('zcMsg'), '未解析到学生数据'); return; }
+      window.__zcData = { courses: courses, credits: credits, students: all };
+      showZcPreview(window.__zcData);
+    }
   }
-  readSheet(f, function(rows, err) {
-    if (err) { msg(document.getElementById('zcMsg'), err); return; }
-    var res = parseZcRows(rows, f.name);
-    if (res.error || !res.students.length) {
-      var zyTry = parseZyRows(rows);
-      if (!zyTry.error && zyTry.students && zyTry.students.length) {
-        msg(document.getElementById('zcMsg'), '文件放错上传区域！你上传的是智能成绩单文件，当前是【综测表上传区】，请切换到上方「上传成绩单」区域提交', 'warn');
-      } else {
-        msg(document.getElementById('zcMsg'), res.error || '未解析到学生数据');
-      }
+  function processOne(f) {
+    var ext = f.name.toLowerCase().split('.').pop();
+    if (ext === 'json') {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          var d = JSON.parse(e.target.result);
+          if (!d.students || !Array.isArray(d.students)) throw new Error('JSON 需包含 students 数组');
+          all = all.concat(d.students);
+          if (!courses && d.courses) { courses = d.courses; credits = d.credits; }
+        } catch (err) { errored = true; msg(document.getElementById('zcMsg'), f.name + ' JSON 解析失败：' + err.message); return; }
+        next();
+      };
+      reader.readAsText(f);
       return;
     }
-    window.__zcData = { courses: res.courses, credits: res.credits, students: res.students };
-    showZcPreview(window.__zcData);
-  });
+    readSheet(f, function(rows, err) {
+      if (err) { errored = true; msg(document.getElementById('zcMsg'), f.name + ': ' + err); return; }
+      var res = parseZcRows(rows, f.name);
+      if (res.error || !res.students.length) {
+        var zyTry = parseZyRows(rows);
+        if (!zyTry.error && zyTry.students && zyTry.students.length) {
+          errored = true; msg(document.getElementById('zcMsg'), f.name + ' 是成绩单，请切换到上方「上传成绩单」区域', 'warn');
+        } else { errored = true; msg(document.getElementById('zcMsg'), f.name + ': ' + (res.error || '未解析到学生数据')); }
+        return;
+      }
+      all = all.concat(res.students);
+      if (!courses && res.courses) { courses = res.courses; credits = res.credits; }
+      next();
+    });
+  }
+  next();
 }
+
 function showZcPreview(d) {
   var st = d.students || [];
   var nw = st.filter(function(s){ return s.warn === '是'; }).length;
@@ -936,11 +963,11 @@ function showZcPreview(d) {
 }
 function confirmZc() {
   if (!window.__zcData || !window.__zcData.students.length) { msg(document.getElementById('zcMsg'), '请先解析'); return; }
-  var f = document.getElementById('zcFile').files[0];
+  var fs = document.getElementById('zcFile').files;
   api('/api/admin/builtin/zc', { method: 'POST', body: { data: window.__zcData, remark: document.getElementById('zcRemark').value.trim() } })
     .then(function(d) {
       if (d.ok) {
-        if (f) uploadOrigin(f, 'zc');
+        if (fs && fs.length) { for (var _fi2=0; _fi2<fs.length; _fi2++) uploadOrigin(fs[_fi2], 'zc'); }
         msg(document.getElementById('zcMsg'), '已设为全站生效：' + d.version, true);
         api('/api/admin/builtin').then(function(d2){ if (d2.ok) renderVersion(d2); });
       } else { msg(document.getElementById('zcMsg'), d.error || '提交失败'); }
