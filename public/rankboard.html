@@ -912,9 +912,10 @@ function parseModNote(note) {
   for (var si = 0; si < segs.length; si++) {
     var seg = segs[si].trim();
     if (!seg) { continue; }
-    if (/^\s*=/.test(seg)) { continue; }
-    if (/^\s*[%x×*]/.test(seg)) { continue; }
-    if (/^\s*未标注/.test(seg)) { continue; }
+    seg = seg.replace(/^\s*=\s*[\d.]+[、，,]?\s*/, '');
+    seg = seg.replace(/^\s*[%x×*]\s*[\d.]+\s*=\s*/, '');
+    seg = seg.replace(/^\s*未标注\s*/, '');
+    if (!seg) { continue; }
     var score = null;
     var mm = seg.match(/[（(]\s*[＋+]\s*([\d.]+)\s*[）)]/);
     if (mm) {
