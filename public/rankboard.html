@@ -909,7 +909,7 @@ function parseModNote(note) {
   var s = String(note).replace(/[\n\r]+/g, ' ').replace(/\s+/g, ' ').trim();
   if (!s) { return out; }
 
-  var re = /[（(][^（）()]*(?:[\d.]+\s*[*x×]\s*[\d.]+%?(?:\s*[＋+]\s*[\d.]+)*\s*=\s*([\d.]+)[^（）()]*)[）)]|[（(]\s*[＋+]\s*([\d.]+)%?\s*[）)]|[＋+]\s*([\d.]+)|[（(]\s*(\d{1,2}(?:\.\d+)?)\s*[）)]|(\d+(?:\.\d+)?)\s*分/g;
+  var re = /[（(][^（）()]*(?:[\d.]+\s*[*x×]\s*[\d.]+%?(?:\s*[＋+]\s*[\d.]+)*\s*=\s*([\d.]+)[^（）()]*)[）)]|[＋+]\s*[\d.]+%?\s*[*x×]\s*[\d.]+%?(?:\s*[＋+]\s*[\d.]+)*\s*=\s*([\d.]+)|[（(]\s*[＋+]\s*([\d.]+)%?\s*[）)]|[＋+]\s*([\d.]+)|[（(]\s*(\d{1,2}(?:\.\d+)?)\s*[）)]|["\u201c\u201d\u2018\u2019]\s*(\d+(?:\.\d+)?)\s*分?|(\d+(?:\.\d+)?)\s*分/g;
   var m, lastEnd = 0;
   while ((m = re.exec(s)) !== null) {
     var score = null;
@@ -918,10 +918,12 @@ function parseModNote(note) {
     else if (m[3] !== undefined) { score = parseFloat(m[3]); }
     else if (m[4] !== undefined) { score = parseFloat(m[4]); }
     else if (m[5] !== undefined) { score = parseFloat(m[5]); }
+    else if (m[6] !== undefined) { score = parseFloat(m[6]); }
+    else if (m[7] !== undefined) { score = parseFloat(m[7]); }
 
-    if (score !== null && score >= 1900 && score <= 2099 && m[0].indexOf('+') < 0 && m[0].indexOf('＋') < 0 && m[0].indexOf('（') < 0 && m[0].indexOf('(') < 0) { continue; }
-    /* N分模式（m[5]）：只识别<=20的加分分数，避免误识别85分/90分等考试成绩 */
-    if (m[5] !== undefined && score !== null && score > 20) { continue; }
+    /* N分模式（m[7]）：只识别<=40的加分分数，避免误识别85分/90分等考试成绩 */
+    if (m[7] !== undefined && score !== null && score > 40) { continue; }
+    if (m[5] !== undefined && score !== null && score > 40) { continue; }
     var nm = s.slice(lastEnd, m.index);
     nm = nm.replace(/[\s、，,;。\-]+$/g, '').replace(/^[\s、，,;、]+/, '').trim();
     if (!nm || /^[\d.\s\-+x×*%=()（）]+$/.test(nm)) { nm = '未命名项'; }
@@ -931,6 +933,7 @@ function parseModNote(note) {
     if (rm) { nm = nm + '（' + rm[1] + '）'; re.lastIndex += rm[0].length; }
 
     nm = nm.replace(/分$/, '');
+    nm = nm.replace(/[\d.]+\s*$/, '').trim();
     out.push({ name: nm, score: score });
     lastEnd = re.lastIndex;
   }
