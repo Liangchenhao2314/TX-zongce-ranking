@@ -902,58 +902,31 @@ function rowsToDirect(rows) {
 
 /* ---------- 三、综测引擎（综测表） ---------- */
 /* 加分备注解析 -> [{name, score|null}]
-   策略：先按逗号/分号/顿号/换行切段；每段内找分数；过滤公式残留 */
+   策略：全局扫描分数标记，每个分数前的文本是项名；公式片段取最终值 */
 function parseModNote(note) {
   var out = [];
   if (!note) { return out; }
   var s = String(note).trim();
   if (!s) { return out; }
-  var segs = s.split(/[、，,;；\n\r]+/);
-  for (var si = 0; si < segs.length; si++) {
-    var seg = segs[si].trim();
-    if (!seg) { continue; }
-    seg = seg.replace(/^\s*=\s*[\d.]+[、，,]?\s*/, '');
-    seg = seg.replace(/^\s*[%x×*]\s*[\d.]+\s*=\s*/, '');
-    seg = seg.replace(/^\s*未标注\s*/, '');
-    if (!seg) { continue; }
-    var score = null;
-    var mm = seg.match(/[（(]\s*[＋+]\s*([\d.]+)\s*[）)]/);
-    if (mm) {
-      score = parseFloat(mm[1]);
-      seg = seg.slice(0, mm.index) + seg.slice(mm.index + mm[0].length);
-    } else {
-      mm = seg.match(/[＋+]\s*([\d.]+)/);
-      if (mm) {
-        score = parseFloat(mm[1]);
-        seg = seg.slice(0, mm.index) + seg.slice(mm.index + mm[0].length);
-      } else {
-        mm = seg.match(/([\d.]+)\s*分\s*$/);
-        if (mm) {
-          score = parseFloat(mm[1]);
-          seg = seg.slice(0, mm.index);
-        } else {
-          mm = seg.match(/[”\"]\s*([\d.]+)\s*分?\s*$/);
-          if (mm) {
-            score = parseFloat(mm[1]);
-            seg = seg.slice(0, mm.index);
-          } else {
-            mm = seg.match(/\s+([\d.]+)\s*$/);
-            if (mm && parseFloat(mm[1]) < 100) {
-              score = parseFloat(mm[1]);
-              seg = seg.slice(0, mm.index);
-            }
-          }
-        }
-      }
-    }
-    var nm = seg
-      .replace(/[（(]\s*(19|20)\d{2}\s*[）)]/g, '')
-      .replace(/[\s、，,;。\-]+$/g, '')
-      .replace(/^[\s、，,;、]+/, '')
-      .replace(/[”"\"]\s*$/, '')
-      .trim();
-    if (!nm || /^[\d.\s]+$/.test(nm)) { nm = '未命名项'; }
+  var re = /[（(]\s*[＋+]\s*([\d.]+)(?:\s*x\s*[\d.]+%?(?:\s*[＋+]\s*[\d.]+)*\s*=\s*([\d.]+))?\s*[）)]|[＋+]\s*([\d.]+)(?:\s*x\s*[\d.]+%?(?:\s*[＋+]\s*[\d.]+)*\s*=\s*([\d.]+))?/g;
+  var m, lastEnd = 0;
+  while ((m = re.exec(s)) !== null) {
+    var score;
+    if (m[2] !== undefined) { score = parseFloat(m[2]); }
+    else if (m[1] !== undefined) { score = parseFloat(m[1]); }
+    else if (m[4] !== undefined) { score = parseFloat(m[4]); }
+    else if (m[3] !== undefined) { score = parseFloat(m[3]); }
+    var nm = s.slice(lastEnd, m.index);
+    nm = nm.replace(/[\s、，,;。\n\r\-]+$/g, '').replace(/^[\s、，,;、\n\r]+/, '').trim();
+    if (!nm || /^[\d.\s\-+x×*%=]+$/.test(nm)) { nm = '未命名项'; }
     out.push({ name: nm, score: score });
+    lastEnd = re.lastIndex;
+  }
+  /* 尾巴：最后一个分数后的文本 */
+  var tail = s.slice(lastEnd).trim();
+  if (tail) {
+    tail = tail.replace(/^[\s、，,;、\n\r]+/, '').replace(/[\s、，,;。\n\r]+$/, '').trim();
+    if (tail && !/^[\d.\s\-+x×*%=]+$/.test(tail)) { out.push({ name: tail, score: null }); }
   }
   return out;
 }
