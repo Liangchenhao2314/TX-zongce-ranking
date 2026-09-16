@@ -10,12 +10,16 @@ RUN npm config set registry https://mirrors.cloud.tencent.com/npm/
 COPY package*.json ./
 RUN npm install --omit=dev
 
-# 复制项目全部代码（含 data 目录初始数据）
+# 复制项目全部代码
 COPY . .
+
+# 保留一份初始数据作为种子，供持久化挂载首次启动时导入
+RUN cp -r data /app/data-init
 
 ENV NODE_ENV=production
 ENV PORT=3000
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+# 启动前：若 /app/data 为空（首次挂载持久化存储），从种子数据初始化
+CMD ["sh", "-c", "if [ ! -d /app/data ] || [ -z \"$(ls -A /app/data 2>/dev/null)\" ]; then mkdir -p /app/data && cp -r /app/data-init/. /app/data/; fi; npm start"]
