@@ -909,11 +909,7 @@ function parseModNote(note) {
   var s = String(note).replace(/[\n\r]+/g, ' ').replace(/\s+/g, ' ').trim();
   if (!s) { return out; }
 
-  var re = /[（(][^（）()]*(?:[\d.]+\s*[*x×]\s*[\d.]+%?(?:\s*[＋+]\s*[\d.]+)*\s*=\s*([\d.]+)[^（）()]*)[）)]|
-           + /[（(]\s*[＋+]\s*([\d.]+)%?\s*[）)]|
-           /[＋+]\s*([\d.]+)|
-           /[（(]\s*(\d{1,2}(?:\.\d+)?)\s*[）)]|
-           /(\d+(?:\.\d+)?)\s*分/g;
+  var re = /[（(][^（）()]*(?:[\d.]+\s*[*x×]\s*[\d.]+%?(?:\s*[＋+]\s*[\d.]+)*\s*=\s*([\d.]+)[^（）()]*)[）)]|[（(]\s*[＋+]\s*([\d.]+)%?\s*[）)]|[＋+]\s*([\d.]+)|[（(]\s*(\d{1,2}(?:\.\d+)?)\s*[）)]|(\d+(?:\.\d+)?)\s*分/g;
   var m, lastEnd = 0;
   while ((m = re.exec(s)) !== null) {
     var score = null;
@@ -1904,7 +1900,9 @@ function saveLocalSnapshot(mode) {
     if (!src || !src.length) { return; }
     var fname = mode === 'zy' ? (pendingZyName || '') : (pendingZcNames || '');
     localStorage.setItem(localKeyFor(mode), JSON.stringify({
-      type: mode, savedAt: bjNow(), fileName: fname, students: src
+      type: mode, savedAt: bjNow(), fileName: fname, students: src,
+      verifyPool: (typeof ZY_VERIFY_POOL !== 'undefined') ? ZY_VERIFY_POOL : {},
+      gmList: (typeof ZY_GM_LIST !== 'undefined') ? ZY_GM_LIST : {}
     }));
     HAS_LOCAL_DATA = true;
   } catch (e) {
@@ -1934,6 +1932,14 @@ function loadLocalSnapshot(mode) {
     }
     var p = JSON.parse(raw);
     if (!p || p.type !== mode || !p.students || !p.students.length) { return null; }
+    try {
+      if (p.verifyPool && typeof ZY_VERIFY_POOL !== 'undefined') {
+        for (var k in p.verifyPool) { ZY_VERIFY_POOL[k] = p.verifyPool[k]; }
+      }
+      if (p.gmList && typeof ZY_GM_LIST !== 'undefined') {
+        for (var k2 in p.gmList) { ZY_GM_LIST[k2] = p.gmList[k2]; }
+      }
+    } catch (e) {}
     return { savedAt: p.savedAt, fileName: p.fileName || '', students: p.students };
   } catch (e) { return null; }
 }
