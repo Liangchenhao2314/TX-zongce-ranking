@@ -920,6 +920,8 @@ function parseModNote(note) {
     else if (m[5] !== undefined) { score = parseFloat(m[5]); }
 
     if (score !== null && score >= 1900 && score <= 2099 && m[0].indexOf('+') < 0 && m[0].indexOf('＋') < 0 && m[0].indexOf('（') < 0 && m[0].indexOf('(') < 0) { continue; }
+    /* N分模式（m[5]）：只识别<=20的加分分数，避免误识别85分/90分等考试成绩 */
+    if (m[5] !== undefined && score !== null && score > 20) { continue; }
     var nm = s.slice(lastEnd, m.index);
     nm = nm.replace(/[\s、，,;。\-]+$/g, '').replace(/^[\s、，,;、]+/, '').trim();
     if (!nm || /^[\d.\s\-+x×*%=()（）]+$/.test(nm)) { nm = '未命名项'; }
