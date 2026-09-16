@@ -901,44 +901,49 @@ function rowsToDirect(rows) {
 }
 
 /* ---------- 三、综测引擎（综测表） ---------- */
-/* 加分备注解析 -> [{name, score|null}]
-   支持：（+N）、+N、(N)纯数字括号、公式x%=M；分数后角色后缀归入当前项 */
+/* 加分备注解析 -> [{name, score|null}] v5
+   预处理：去换行、压缩空格；识别公式括号/纯数字括号/+N/N分；过滤年份；尾巴分字并入前项 */
 function parseModNote(note) {
   var out = [];
   if (!note) { return out; }
-  var s = String(note).trim();
+  var s = String(note).replace(/[\n\r]+/g, ' ').replace(/\s+/g, ' ').trim();
   if (!s) { return out; }
 
-  var re = /[（(]\s*[＋+]\s*([\d.]+)%?(?:\s*x\s*[\d.]+%?(?:\s*[＋+]\s*[\d.]+)*\s*=\s*([\d.]+))?\s*[）)]|[＋+]\s*([\d.]+)%?(?:\s*x\s*[\d.]+%?(?:\s*[＋+]\s*[\d.]+)*\s*=\s*([\d.]+))?|[（(]\s*([\d.]{1,2}(?:\.\d+)?)\s*[）)]/g;
+  var re = /[（(][^（）()]*(?:[\d.]+\s*[*x×]\s*[\d.]+%?(?:\s*[＋+]\s*[\d.]+)*\s*=\s*([\d.]+)[^（）()]*)[）)]|
+           + /[（(]\s*[＋+]\s*([\d.]+)%?\s*[）)]|
+           /[＋+]\s*([\d.]+)|
+           /[（(]\s*(\d{1,2}(?:\.\d+)?)\s*[）)]|
+           /(\d+(?:\.\d+)?)\s*分/g;
   var m, lastEnd = 0;
   while ((m = re.exec(s)) !== null) {
-    var score;
-    if (m[2] !== undefined) { score = parseFloat(m[2]); }
-    else if (m[1] !== undefined) { score = parseFloat(m[1]); }
-    else if (m[4] !== undefined) { score = parseFloat(m[4]); }
+    var score = null;
+    if (m[1] !== undefined) { score = parseFloat(m[1]); }
+    else if (m[2] !== undefined) { score = parseFloat(m[2]); }
     else if (m[3] !== undefined) { score = parseFloat(m[3]); }
+    else if (m[4] !== undefined) { score = parseFloat(m[4]); }
     else if (m[5] !== undefined) { score = parseFloat(m[5]); }
+
+    if (score !== null && score >= 1900 && score <= 2099 && m[0].indexOf('+') < 0 && m[0].indexOf('＋') < 0 && m[0].indexOf('（') < 0 && m[0].indexOf('(') < 0) { continue; }
     var nm = s.slice(lastEnd, m.index);
-    nm = nm.replace(/[\s、，,;。\n\r\-]+$/g, '').replace(/^[\s、，,;、\n\r]+/, '').trim();
-    if (!nm || /^[\d.\s\-+x×*%=]+$/.test(nm)) { nm = '未命名项'; }
+    nm = nm.replace(/[\s、，,;。\-]+$/g, '').replace(/^[\s、，,;、]+/, '').trim();
+    if (!nm || /^[\d.\s\-+x×*%=()（）]+$/.test(nm)) { nm = '未命名项'; }
 
     var roleTail = s.slice(re.lastIndex);
     var rm = roleTail.match(/^\s*(队长|队员|负责人|成员|主要参与者?|分数均分|第二名占比[\d.]+%?|主要参与)\s*[，,，。]?\s*/);
-    if (rm) {
-      nm = nm + '（' + rm[1] + '）';
-      re.lastIndex += rm[0].length;
-    }
+    if (rm) { nm = nm + '（' + rm[1] + '）'; re.lastIndex += rm[0].length; }
+
+    nm = nm.replace(/分$/, '');
     out.push({ name: nm, score: score });
     lastEnd = re.lastIndex;
   }
+
   var tail = s.slice(lastEnd).trim();
   if (tail) {
-    tail = tail.replace(/^[\s、，,;、\n\r]+/, '').replace(/[\s、，,;。\n\r]+$/, '').trim();
-    if (tail && !/^[\d.\s\-+x×*%=]+$/.test(tail)) { out.push({ name: tail, score: null }); }
+    tail = tail.replace(/^[\s、，,;、]+/, '').replace(/[\s、，,;。]+$/, '').trim();
+    if (tail && tail !== '分' && !/^[\d.\s\-+x×*%=()（）]+$/.test(tail)) { out.push({ name: tail, score: null }); }
   }
   return out;
 }
-
 /* 综测表解析：智育平均分/学期综测总分/25门课成绩/各模块加分明细 */
 function extractClsFromStr(s) {
   var m = String(s || '').match(/([\u4e00-\u9fa5A-Za-z][\u4e00-\u9fa5A-Za-z0-9\-]*?\u73ed)/);
