@@ -180,6 +180,9 @@
     box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
     overflow: hidden;
   }
+  .excl-abn{ display:inline-flex; align-items:center; gap:4px; margin-left:10px; font-size:12px; color:#555; cursor:pointer; white-space:nowrap; user-select:none; }
+  .excl-abn input{ width:15px; height:15px; cursor:pointer; accent-color:#1976D2; }
+  .excl-abn:hover{ color:#1976D2; }
   .board-header {
     padding: 16px 20px;
     border-bottom: 1px solid #eef1f5;
@@ -439,6 +442,9 @@
       <div class="board-header">
         <div class="board-title" id="titleG">智育平均分排名</div>
         <div class="board-stats" id="statsG"></div>
+        <label class="excl-abn" title="勾选后从排名中排除挂科、重修、缺考、违纪的学生，并按剩余学生重新排名">
+          <input type="checkbox" id="exclG" onchange="toggleExclude(this)"><span>排除挂科/重修/缺考/违纪</span>
+        </label>
       </div>
       <div class="board-table-wrap">
         <table class="rank-table">
@@ -460,6 +466,9 @@
       <div class="board-header">
         <div class="board-title" id="titleC">综合素质测评总分排名</div>
         <div class="board-stats" id="statsC"></div>
+        <label class="excl-abn" title="勾选后从排名中排除挂科、重修、缺考、违纪的学生，并按剩余学生重新排名">
+          <input type="checkbox" id="exclC" onchange="toggleExclude(this)"><span>排除挂科/重修/缺考/违纪</span>
+        </label>
       </div>
       <div class="board-table-wrap">
         <table class="rank-table">
@@ -1250,6 +1259,23 @@ function checkClsConsistency(mode) {
   }
   return { ok: true, msg: '' };
 }
+var EXCLUDE_ABN = false;
+function isAbnormal(s) {
+  if (MODE === 'zy') {
+    return !!(s.fail || s.cheat || s.absent || s.rebuild);
+  }
+  if (s.fail || s.cheat || s.absent || s.rebuild) { return true; }
+  var wn = String(s.warn || '');
+  return wn.indexOf('是') >= 0 || wn.indexOf('挂科') >= 0 || wn.indexOf('违纪') >= 0 || wn.indexOf('缺考') >= 0;
+}
+function toggleExclude(cb) {
+  EXCLUDE_ABN = !!cb.checked;
+  var g = document.getElementById('exclG');
+  var c = document.getElementById('exclC');
+  if (g && g !== cb) { g.checked = EXCLUDE_ABN; }
+  if (c && c !== cb) { c.checked = EXCLUDE_ABN; }
+  renderAll();
+}
 function filterPool() {
   var out = [];
   var ck = Object.keys(SEL_CLS);
@@ -1260,6 +1286,7 @@ function filterPool() {
     if (SEL_GRADE && s.grade !== SEL_GRADE) { continue; }
     if (SEL_MAJOR && s.major !== SEL_MAJOR) { continue; }
     if (!SEL_CLS[clsNorm(s.cls)]) { continue; }
+    if (EXCLUDE_ABN && isAbnormal(s)) { continue; }
     out.push(s);
   }
   return out;
