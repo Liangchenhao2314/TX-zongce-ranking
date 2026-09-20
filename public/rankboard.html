@@ -2867,6 +2867,8 @@ function applyZyData(newStudents) {
   sortStateC = { asc: false, touched: false };
   renderSelector();
   renderAll();
+  try { saveLocalSnapshot('zy'); } catch(e) {}
+  try { localStorage.setItem('zy_view_pref', 'local'); } catch(e2) {}
   document.getElementById('pageFooter').textContent =
     '\u667a\u80b2\u6570\u636e\u6765\u6e90\uff1a\u7528\u6237\u66f4\u65b0\uff08\u5171 ' + newStudents.length + ' \u4eba\uff0c' + bjNow() + '\uff09\uff5c \u53ef\u9009\u62e9\u5e74\u7ea7\u3001\u4e13\u4e1a\u53ca\u540c\u4e13\u4e1a\u5185\u73ed\u7ea7\u6392\u540d\u6bd4\u8f83\uff1b\u667a\u80b2\u5e73\u5747\u5206 = \u5168\u90e8\u8bfe\u7a0b\u5b66\u5206\u52a0\u6743\u5e73\u5747\uff0c\u7b49\u7ea7\u6362\u7b97\uff1a\u4f1895/\u826f85/\u4e2d75/\u53ca\u683c65/\u4e0d\u53ca\u683c40/\u5408\u683c65\uff1b\u91cd\u4fee\u4e0d\u8ba1\u5165\uff08\u7b2c15\u6761\uff09\uff0c\u8865\u8003\u6309\u539f\u59cb\u5206\u3001\u7f13\u8003\u6309\u7f13\u8003\u6210\u7ee9\u3001\u4f5c\u5f0a/\u7f3a\u8003 0\u5206\uff08\u7b2c16\u6761\uff09';
   showUpdateMsg('\u667a\u80b2\u6392\u540d\u5df2\u66f4\u65b0\uff0c\u5171 ' + newStudents.length + ' \u4eba\uff0c\u8bc6\u522b\u5230 ' + opts.grades.length + ' \u4e2a\u5e74\u7ea7 / ' + opts.majors.length + ' \u4e2a\u4e13\u4e1a / ' + Object.keys(opts.clss).length + ' \u4e2a\u73ed\u7ea7');
@@ -2909,6 +2911,8 @@ function applyZcData(newStudents) {
   sortStateC = { asc: false, touched: false };
   renderSelector();
   renderAll();
+  try { saveLocalSnapshot('zc'); } catch(e) {}
+  try { localStorage.setItem('zc_view_pref', 'local'); } catch(e2) {}
   document.getElementById('pageFooter').textContent =
     '\u7efc\u6d4b\u6570\u636e\u6765\u6e90\uff1a\u7528\u6237\u66f4\u65b0\uff08\u5f53\u524d\u5171 ' + ZC_POOL.length + ' \u4eba\uff0c\u6700\u8fd1\u5bfc\u5165 ' + newStudents.length + ' \u4eba\uff0c' + bjNow() + '\uff09\uff5c \u53ef\u9009\u62e9\u5e74\u7ea7\u3001\u4e13\u4e1a\u53ca\u540c\u4e13\u4e1a\u5185\u73ed\u7ea7\u6392\u540d\u6bd4\u8f83\uff1b\u667a\u80b2\u5e73\u5747\u5206\u4e0e\u5b66\u671f\u7efc\u6d4b\u603b\u5206\u53d6\u7efc\u6d4b\u8868\u539f\u503c\uff1b\u70b9\u51fb\u201c\u6838\u9a8c\u201d\u53ef\u67e5\u8bfe\u7a0b\u660e\u7ec6\u4e0e\u5404\u6a21\u5757\u52a0\u5206\u660e\u7ec6';
   showUpdateMsg('\u7efc\u6d4b\u6392\u540d\u5df2\u66f4\u65b0\uff0c\u5171 ' + newStudents.length + ' \u4eba\uff08\u540c\u540d\u73ed\u7ea7\u5df2\u66ff\u6362\uff0c\u5176\u4ed6\u73ed\u4fdd\u7559\uff09');
