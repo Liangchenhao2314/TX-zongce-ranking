@@ -456,10 +456,7 @@
           </label>
           <a class="tpl-link" href="templates/智育成绩单模板.xlsx" download>下载智育成绩单模板</a>
         </div>
-        <div class="file-col">
-          <label class="file-label">
-            上传综测表（综测）
-            <input type="file" id="fileZc" accept=".xlsx,.xls,.csv,.json" multiple>
+        <div class="file-col zc-only"> accept=".xlsx,.xls,.csv,.json" multiple>
           </label>
           <a class="tpl-link" href="templates/综测表模板.xlsx" download>下载综测表模板</a>
         </div>
@@ -2980,6 +2977,9 @@ function setMode(m) {
   document.getElementById('boardC').classList.toggle('hidden', m !== 'zc');
   var scholarOnly = document.querySelectorAll('.scholar-only');
   for (var si=0; si<scholarOnly.length; si++){ scholarOnly[si].style.display = (m==='scholar') ? '' : 'none'; }
+  /* zy 模式只显示成绩单上传口，隐藏综测表上传口 */
+  var zcOnly = document.querySelectorAll('.zc-only');
+  for (var zi=0; zi<zcOnly.length; zi++){ zcOnly[zi].style.display = (m==='zy') ? 'none' : ''; }
   var bS = document.getElementById('boardScholar');
   if (bS) { bS.classList.toggle('hidden', m !== 'scholar'); }
   sortStateG = { asc: false, touched: false };
@@ -3103,8 +3103,8 @@ function bindEvents() {
   document.getElementById('btnApply').addEventListener('click', function () {
     var applied = false;
     /* 跨模式上传：自动切到对应模式再应用 */
-    if (MODE === 'zy' && pendingZcStudents && !pendingZyStudents) { setMode('zc'); }
-    else if (MODE === 'zc' && pendingZyStudents && !pendingZcStudents) { setMode('zy'); }
+    if (pendingZcStudents && !pendingZyStudents) { setMode('zc'); }
+    else if (pendingZyStudents && !pendingZcStudents) { setMode('zy'); }
     if (MODE === 'zy' && pendingZyStudents) { applyZyData(pendingZyStudents); pendingZyStudents = null; applied = true; }
     if (MODE === 'zc' && pendingZcStudents) { applyZcData(pendingZcStudents); pendingZcStudents = null; applied = true; }
     if (applied) {
