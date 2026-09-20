@@ -334,6 +334,11 @@
 .judge-reason { font-size:12px; color:#5c6b80; line-height:1.5; }
 .judge-reason .warn { color:#c0392b; font-weight:600; }
 .judge-reason .ok { color:#2e7d32; }
+.cell-rank { color:#94a3b8; font-size:12.5px; text-align:center; }
+.cet4-tag { cursor:pointer; padding:1px 7px; border-radius:10px; font-size:11.5px; font-weight:600; user-select:none; }
+.cet4-pending { background:#fff3e0; color:#e65100; }
+.cet4-pass { background:#e8f5e9; color:#2e7d32; }
+.cet4-fail { background:#ffebee; color:#c62828; }
 /* 规则配置区 */
 .rule-config { margin-top:12px; padding:12px 14px; background:#f7f9fc; border:1px solid #e2e8f0; border-radius:10px; }
 .rule-config-title { font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; }
@@ -580,7 +585,7 @@
       <div class="board-table-wrap">
         <table class="rank-table" id="scholarTable">
           <thead><tr>
-            <th>预测等级</th><th>姓名</th><th>班级</th>
+            <th style="width:48px;">序号</th><th>预测等级</th><th>姓名</th><th>班级</th>
             <th class="score-th">综测分</th><th class="score-th">智育分</th>
             <th>体测</th><th>判定依据</th>
           </tr></thead>
@@ -1713,6 +1718,8 @@ function renderAll() {
 /* ===== 奖学金预测 ===== */
 var QUOTA_DATA = {};
 var QUOTA_LOADED = false;
+var CET4_STATUS = {};
+try { var _cs = localStorage.getItem('scholar_cet4_v1'); if (_cs) CET4_STATUS = JSON.parse(_cs)||{}; } catch(e){}
 var RULES = { te:{pct:0.20,gpa:85,tice:75}, yi:{pct:0.30,gpa:80,tice:75}, er:{pct:0.40,gpa:75,tice:null}, san:{pct:0.50,gpa:70,tice:null}, ticeFail:60, specialNote:'' };
 function loadRules() {
   try {
@@ -1804,7 +1811,7 @@ function renderScholar() {
     }
   }
   if (!list.length) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="7" class="empty-tip">暂无数据：请先上传综测表，或在上方选择年级/专业/班级</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="8" class="empty-tip">暂无数据：请先上传综测表，或在上方选择年级/专业/班级</td></tr>';
     if (summary) summary.innerHTML='';
     if (stats) stats.textContent='';
     return;
@@ -1908,16 +1915,25 @@ function renderScholar() {
     var s = allRows[i];
     var lv = s._lv||'none';
     var tv = ticeOf(s);
+    var ck = (s.stid||s.name);
+    var cet4 = CET4_STATUS[ck] || 'pending';
+    var cet4Html = '';
+    if (lv==='te'||lv==='yi') {
+      if (cet4==='pass') cet4Html = ' <span class="cet4-tag cet4-pass" data-cet4="'+esc(ck)+'">四级已过 ✓</span>';
+      else if (cet4==='fail') cet4Html = ' <span class="cet4-tag cet4-fail" data-cet4="'+esc(ck)+'">四级未过 ✗</span>';
+      else cet4Html = ' <span class="cet4-tag cet4-pending" data-cet4="'+esc(ck)+'">四级待核实（点击）</span>';
+    }
     var reasonHtml = '';
     if (lv==='none') {
       reasonHtml = '<span class="warn">'+esc(s._lvReason||'')+'</span>';
     } else {
       reasonHtml = '<span class="ok">综测前'+Math.round(s._pct*100)+'%｜智育'+(s.gpa||0).toFixed(1)+'</span>';
       if (tv===null && RULES[lv] && RULES[lv].tice) reasonHtml += ' <span class="warn">体测待核实</span>';
-      if (lv==='te'||lv==='yi') reasonHtml += ' <span class="warn">四级≥425待核实</span>';
+      reasonHtml += cet4Html;
       if (s._lvReason && s._lvReason!=='名额内' && s._lvReason!=='按比例门槛（未配置名额）') reasonHtml += '｜'+esc(s._lvReason);
     }
     html += '<tr data-name="'+esc(s.name)+'" data-stid="'+esc(s.stid||'')+'">'
+      + '<td class="cell-rank">'+(i+1)+'</td>'
       + '<td><span class="lv-badge '+LV_CLS[lv]+'">'+LV_NAME[lv]+'</span></td>'
       + '<td class="cell-name">'+esc(s.name)+'</td>'
       + '<td class="cell-cls">'+esc(s.cls)+'</td>'
@@ -1983,6 +1999,19 @@ function bindRuleInputs() {
   var sn = document.getElementById('ruleSpecialNote');
   if (sn) { sn.addEventListener('input', function(){ RULES.specialNote = sn.value; try{localStorage.setItem('scholar_rules_v1', JSON.stringify(RULES));}catch(e){} renderAll(); }); }
 }
+/* 四级核实点击 */
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    if (t && t.classList && t.classList.contains('cet4-tag')) {
+      var ck = t.getAttribute('data-cet4');
+      var cur = CET4_STATUS[ck] || 'pending';
+      if (cur==='pending') CET4_STATUS[ck]='pass';
+      else if (cur==='pass') CET4_STATUS[ck]='fail';
+      else CET4_STATUS[ck]='pending';
+      try { localStorage.setItem('scholar_cet4_v1', JSON.stringify(CET4_STATUS)); } catch(e){}
+      renderAll();
+    }
+  });
 function bindOtherRuleUploads() {
   var map = [['fileRuleNotice','noticeInfoLink','评定通知'], ['fileRuleSpecial','specialInfoLink','特别说明'], ['fileRuleMethod','methodInfoLink','评定办法']];
   for (var i=0;i<map.length;i++){
@@ -3065,6 +3094,12 @@ function bindEvents() {
     else if (MODE === 'zc' && pendingZyStudents && !pendingZcStudents) { setMode('zy'); }
     if (MODE === 'zy' && pendingZyStudents) { applyZyData(pendingZyStudents); pendingZyStudents = null; applied = true; }
     if (MODE === 'zc' && pendingZcStudents) { applyZcData(pendingZcStudents); pendingZcStudents = null; applied = true; }
+    if (applied) {
+      var up = document.getElementById('updatePanel');
+      if (up) up.classList.remove('open');
+      var tgl = document.getElementById('updateToggle');
+      if (tgl) tgl.textContent = '更新数据';
+    }
     if (!applied) {
       showUpdateMsg('\u6682\u65e0\u53ef\u5e94\u7528\u7684\u6570\u636e\uff1a\u8bf7\u5148\u4e0a\u4f20 \u6210\u7ee9\u5355 \u6216 \u7efc\u6d4b\u8868', true);
       return;
