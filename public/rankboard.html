@@ -463,28 +463,28 @@
           </label>
           <a class="tpl-link" href="templates/综测表模板.xlsx" download>下载综测表模板</a>
         </div>
-        <div class="file-col">
+        <div class="file-col scholar-only" style="display:none;">
           <label class="file-label">
             上传奖学金名额方案
             <input type="file" id="fileQuota" accept=".xlsx,.xls,.csv,.json">
           </label>
           <a class="tpl-link" href="#" id="quotaInfoLink">名额表按 专业/年级/各等级名额 自动解析</a>
         </div>
-        <div class="file-col">
+        <div class="file-col scholar-only" style="display:none;">
           <label class="file-label">
             上传评定工作通知
             <input type="file" id="fileRuleNotice" accept=".xlsx,.xls,.csv,.json,.doc,.docx,.pdf">
           </label>
           <a class="tpl-link" href="#" id="noticeInfoLink">存档备查，不参与计算</a>
         </div>
-        <div class="file-col">
+        <div class="file-col scholar-only" style="display:none;">
           <label class="file-label">
             上传特别说明及注意要点
             <input type="file" id="fileRuleSpecial" accept=".xlsx,.xls,.csv,.json,.doc,.docx,.pdf">
           </label>
           <a class="tpl-link" href="#" id="specialInfoLink">存档备查，不参与计算</a>
         </div>
-        <div class="file-col">
+        <div class="file-col scholar-only" style="display:none;">
           <label class="file-label">
             上传评定办法
             <input type="file" id="fileRuleMethod" accept=".xlsx,.xls,.csv,.json,.doc,.docx,.pdf">
@@ -492,7 +492,7 @@
           <a class="tpl-link" href="#" id="methodInfoLink">存档备查，不参与计算</a>
         </div>
       </div>
-      <div class="rule-config" id="ruleConfig">
+      <div class="rule-config scholar-only" id="ruleConfig" style="display:none;">
         <div class="rule-config-title">奖学金评定规则（可按本学年实际修改，自动保存到本地）</div>
         <div class="rule-grid">
           <label>特等 综测前<input type="number" id="ruleTePct" value="20" min="1" max="100">% + 智育≥<input type="number" id="ruleTeGpa" value="85" min="0" max="100">分 + 体测≥<input type="number" id="ruleTeTice" value="75" min="0" max="100">
@@ -1695,6 +1695,7 @@ function renderAll() {
   if (MODE === 'scholar') {
     var bG = document.getElementById('boardG');
     var bC = document.getElementById('boardC');
+    
     var bS = document.getElementById('boardScholar');
     if (bG) { bG.classList.add('hidden'); }
     if (bC) { bC.classList.add('hidden'); }
@@ -1839,8 +1840,12 @@ function renderScholar() {
       var gpa = s.gpa||0;
       var tv = ticeOf(s);
       var ticeOk = (tv===null || tv>=75);
-      if (s._pct<=RULES.te.pct && gpa>=RULES.te.gpa && (!RULES.te.tice || ticeOk)) s._cand='te';
-      else if (s._pct<=RULES.yi.pct && gpa>=RULES.yi.gpa && (!RULES.yi.tice || ticeOk)) s._cand='yi';
+      var ck = (s.stid||s.name);
+      var cet4 = CET4_STATUS[ck] || 'pending';
+      var cet4Block = (cet4 === 'fail');
+      if (s._pct<=RULES.te.pct && gpa>=RULES.te.gpa && (!RULES.te.tice || ticeOk) && !cet4Block) s._cand='te';
+      else if (s._pct<=RULES.yi.pct && gpa>=RULES.yi.gpa && (!RULES.yi.tice || ticeOk) && !cet4Block) s._cand='yi';
+      
       else if (s._pct<=RULES.er.pct && gpa>=RULES.er.gpa) s._cand='er';
       else if (s._pct<=RULES.san.pct && gpa>=RULES.san.gpa) s._cand='san';
       else s._cand='';
@@ -1929,6 +1934,8 @@ function renderScholar() {
     } else {
       reasonHtml = '<span class="ok">综测前'+Math.round(s._pct*100)+'%｜智育'+(s.gpa||0).toFixed(1)+'</span>';
       if (tv===null && RULES[lv] && RULES[lv].tice) reasonHtml += ' <span class="warn">体测待核实</span>';
+      var ck2 = (s.stid||s.name); var cet4v = CET4_STATUS[ck2] || 'pending';
+      if (cet4v==='fail') reasonHtml += ' <span class="cet4-tag cet4-fail">四级未过，已降档</span>';
       reasonHtml += cet4Html;
       if (s._lvReason && s._lvReason!=='名额内' && s._lvReason!=='按比例门槛（未配置名额）') reasonHtml += '｜'+esc(s._lvReason);
     }
@@ -2967,6 +2974,8 @@ function setMode(m) {
   boards.className = 'boards' + (m === 'zc' ? ' dual' : '');
   document.body.classList.toggle('mode-zc', m === 'zc');
   document.getElementById('boardC').classList.toggle('hidden', m !== 'zc');
+  var scholarOnly = document.querySelectorAll('.scholar-only');
+  for (var si=0; si<scholarOnly.length; si++){ scholarOnly[si].style.display = (m==='scholar') ? '' : 'none'; }
   var bS = document.getElementById('boardScholar');
   if (bS) { bS.classList.toggle('hidden', m !== 'scholar'); }
   sortStateG = { asc: false, touched: false };
