@@ -1,5 +1,8 @@
 node_modules/
 data/uploads/
+data/records.json
+data/admin_tokens.json
+tmp/
 *.log
 npm-debug.log*
 .vscode/
