@@ -415,7 +415,7 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log('综合测评排名系统已启动: http://localhost:' + PORT);
-  console.log('管理后台: http://localhost:' + PORT + '/admin （初始密码 ' + CONFIG.password + '）');
+app.listen(PORT, '0.0.0.0', () => {
+  console.log('综合测评排名系统已启动，监听地址: 0.0.0.0:' + PORT);
+  console.log('管理后台: /admin （初始密码 ' + CONFIG.password + '）');
 });
