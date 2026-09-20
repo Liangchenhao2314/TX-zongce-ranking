@@ -445,6 +445,9 @@
         <label class="excl-abn" title="勾选后从排名中排除挂科、重修、缺考、违纪的学生，并按剩余学生重新排名">
           <input type="checkbox" id="exclG" onchange="toggleExclude(this)"><span>排除挂科/重修/缺考/违纪</span>
         </label>
+        <label class="excl-abn" id="exclTGWrap" title="勾选后从排名中排除体测成绩低于75分的学生，并按剩余学生重新排名">
+          <input type="checkbox" id="exclTG" onchange="toggleTiceExclude(this)"><span>排除体测&lt;75</span>
+        </label>
       </div>
       <div class="board-table-wrap">
         <table class="rank-table">
@@ -468,6 +471,9 @@
         <div class="board-stats" id="statsC"></div>
         <label class="excl-abn" title="勾选后从排名中排除挂科、重修、缺考、违纪的学生，并按剩余学生重新排名">
           <input type="checkbox" id="exclC" onchange="toggleExclude(this)"><span>排除挂科/重修/缺考/违纪</span>
+        </label>
+        <label class="excl-abn" id="exclTCWrap" title="勾选后从排名中排除体测成绩低于75分的学生，并按剩余学生重新排名">
+          <input type="checkbox" id="exclTC" onchange="toggleTiceExclude(this)"><span>排除体测&lt;75</span>
         </label>
       </div>
       <div class="board-table-wrap">
@@ -1276,6 +1282,28 @@ function toggleExclude(cb) {
   if (c && c !== cb) { c.checked = EXCLUDE_ABN; }
   renderAll();
 }
+var EXCLUDE_TICE75 = false;
+function ticeOf(s) {
+  try {
+    if (s && s.ty && s.ty.tice != null && fmt(s.ty.tice) !== '') {
+      var v = toNum(s.ty.tice);
+      return (isNaN(v) || v <= 0) ? null : v;
+    }
+  } catch (e) {}
+  return null;
+}
+function isTiceBelow75(s) {
+  var v = ticeOf(s);
+  return v !== null && v < 75;
+}
+function toggleTiceExclude(cb) {
+  EXCLUDE_TICE75 = !!cb.checked;
+  var g = document.getElementById('exclTG');
+  var c = document.getElementById('exclTC');
+  if (g && g !== cb) { g.checked = EXCLUDE_TICE75; }
+  if (c && c !== cb) { c.checked = EXCLUDE_TICE75; }
+  renderAll();
+}
 function filterPool() {
   var out = [];
   var ck = Object.keys(SEL_CLS);
@@ -1287,6 +1315,7 @@ function filterPool() {
     if (SEL_MAJOR && s.major !== SEL_MAJOR) { continue; }
     if (!SEL_CLS[clsNorm(s.cls)]) { continue; }
     if (EXCLUDE_ABN && isAbnormal(s)) { continue; }
+    if (EXCLUDE_TICE75 && isTiceBelow75(s)) { continue; }
     out.push(s);
   }
   return out;
@@ -1561,6 +1590,11 @@ function updateTitle2() {
 }
 function renderAll() {
   syncClsChips();
+  var showTice = (MODE === 'zc');
+  var wg = document.getElementById('exclTGWrap');
+  var wc = document.getElementById('exclTCWrap');
+  if (wg) { wg.style.display = showTice ? '' : 'none'; }
+  if (wc) { wc.style.display = showTice ? '' : 'none'; }
   renderBoard('G', 'gpa');
   if (MODE === 'zc') { renderBoard('C', 'comp'); }
   updateTitle2();
