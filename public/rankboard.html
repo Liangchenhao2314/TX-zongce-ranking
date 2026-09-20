@@ -310,6 +310,31 @@
 }
 .mode-tab:hover { border-color: #1976D2; color: #1976D2; }
 .mode-tab.on { background: #1976D2; border-color: #1976D2; color: #fff; }
+/* ===== 奖学金预测 ===== */
+.quota-summary { display:flex; flex-wrap:wrap; gap:10px; margin:10px 0 14px; }
+.q-card { flex:1 1 120px; min-width:120px; border-radius:10px; padding:10px 14px; background:#f4f7fb; border:1px solid #e2e8f0; }
+.q-card .q-lv { font-size:13px; font-weight:700; }
+.q-card .q-num { font-size:22px; font-weight:800; margin-top:2px; }
+.q-card .q-of { font-size:11px; color:#7a8699; }
+.q-te { background:linear-gradient(135deg,#fff7e0,#fff); border-color:#f5d76e; }
+.q-te .q-lv { color:#b8860b; } .q-te .q-num { color:#c0392b; }
+.q-yi { background:linear-gradient(135deg,#eef4fb,#fff); border-color:#b9cfe8; }
+.q-yi .q-lv { color:#1e5aa8; } .q-yi .q-num { color:#1976D2; }
+.q-er { background:linear-gradient(135deg,#f3f0ea,#fff); border-color:#d8c9a8; }
+.q-er .q-lv { color:#8a6d3b; } .q-er .q-num { color:#8a6d3b; }
+.q-san { background:linear-gradient(135deg,#eef7ee,#fff); border-color:#b8d8b8; }
+.q-san .q-lv { color:#2e7d32; } .q-san .q-num { color:#2e7d32; }
+.q-none { background:#fafafa; } .q-none .q-lv { color:#999; } .q-none .q-num { color:#999; }
+.lv-badge { display:inline-block; padding:2px 10px; border-radius:10px; font-size:12px; font-weight:700; }
+.lv-te { background:#c0392b; color:#fff; }
+.lv-yi { background:#1976D2; color:#fff; }
+.lv-er { background:#8a6d3b; color:#fff; }
+.lv-san { background:#2e7d32; color:#fff; }
+.lv-none { background:#eceff1; color:#90a4ae; }
+.judge-reason { font-size:12px; color:#5c6b80; line-height:1.5; }
+.judge-reason .warn { color:#c0392b; font-weight:600; }
+.judge-reason .ok { color:#2e7d32; }
+
 
 .boards { display: block; max-width: 1280px; margin: 0 auto; }
 .boards.dual { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
@@ -375,6 +400,7 @@
     <div class="mode-tabs">
       <button class="mode-tab on" id="modeZy" type="button">智育（成绩单）</button>
       <button class="mode-tab" id="modeZc" type="button">综测（综测表）</button>
+      <button class="mode-tab" id="modeScholar" type="button">奖学金预测</button>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;width:100%">
       <div>
@@ -425,6 +451,13 @@
             <input type="file" id="fileZc" accept=".xlsx,.xls,.csv,.json" multiple>
           </label>
           <a class="tpl-link" href="templates/综测表模板.xlsx" download>下载综测表模板</a>
+        </div>
+        <div class="file-col">
+          <label class="file-label">
+            上传奖学金名额方案
+            <input type="file" id="fileQuota" accept=".xlsx,.xls,.csv,.json">
+          </label>
+          <a class="tpl-link" href="#" id="quotaInfoLink">名额表按 专业/年级/各等级名额 自动解析</a>
         </div>
       </div>
       <div class="update-preview" id="updatePreview"></div>
@@ -491,7 +524,26 @@
           <tbody id="tbodyC"></tbody>
         </table>
       </div>
+    
     </section>
+    <section class="board hidden" id="boardScholar">
+      <div class="board-header">
+        <div class="board-title" id="titleScholar">奖学金等级预测</div>
+        <div class="board-stats" id="statsScholar"></div>
+      </div>
+      <div class="quota-summary" id="quotaSummary"></div>
+      <div class="board-table-wrap">
+        <table class="rank-table" id="scholarTable">
+          <thead><tr>
+            <th>预测等级</th><th>姓名</th><th>班级</th>
+            <th class="score-th">综测分</th><th class="score-th">智育分</th>
+            <th>体测</th><th>判定依据</th>
+          </tr></thead>
+          <tbody id="tbodyScholar"></tbody>
+        </table>
+      </div>
+    </section>
+
   </main>
 
   <footer class="page-footer" id="pageFooter">
@@ -1590,6 +1642,19 @@ function updateTitle2() {
 }
 function renderAll() {
   syncClsChips();
+  if (MODE === 'scholar') {
+    var bG = document.getElementById('boardG');
+    var bC = document.getElementById('boardC');
+    var bS = document.getElementById('boardScholar');
+    if (bG) { bG.classList.add('hidden'); }
+    if (bC) { bC.classList.add('hidden'); }
+    if (bS) { bS.classList.remove('hidden'); }
+    renderScholar();
+    updateTitle2();
+    return;
+  }
+  var bS0 = document.getElementById('boardScholar');
+  if (bS0) { bS0.classList.add('hidden'); }
   var showTice = (MODE === 'zc');
   var wg = document.getElementById('exclTGWrap');
   var wc = document.getElementById('exclTCWrap');
@@ -1598,6 +1663,260 @@ function renderAll() {
   renderBoard('G', 'gpa');
   if (MODE === 'zc') { renderBoard('C', 'comp'); }
   updateTitle2();
+}
+
+/* ===== 奖学金预测 ===== */
+var QUOTA_DATA = {};
+var QUOTA_LOADED = false;
+function gradeOf(s) {
+  if (s && s.grade) { var gm = String(s.grade).match(/(20\d{2})/); return gm ? gm[1]+'级' : s.grade; }
+  var cls = String((s && s.cls) || '');
+  var m = cls.match(/(\d{2})\s*[-—]?\s*本/);
+  if (m) { return '20'+m[1]+'级'; }
+  var m2 = cls.match(/(20\d{2})/);
+  return m2 ? m2[1]+'级' : '';
+}
+function majorKey(s) {
+  var cls = String((s && s.cls) || '');
+  var m = cls.match(/-本(\d+)/);
+  if (m) { var n = parseInt(m[1],10); return (n>=3) ? '专升本' : '本'; }
+  var mj = String((s && s.major) || '');
+  if (mj.indexOf('专升本') >= 0) return '专升本';
+  return '本';
+}
+function scholarGroupKey(s) { return gradeOf(s) + '|' + majorKey(s); }
+function scholarDenied(s) {
+  var reasons = [];
+  if (s.fail) reasons.push('挂科');
+  if (s.cheat) reasons.push('作弊');
+  if (s.absent) reasons.push('缺考');
+  if (s.rebuild) reasons.push('重修');
+  if (s.buf) reasons.push('补考');
+  var wn = String(s.warn||'');
+  if (wn.indexOf('挂科')>=0 && reasons.indexOf('挂科')<0) reasons.push('挂科');
+  if (wn.indexOf('违纪')>=0 && reasons.indexOf('违纪')<0) reasons.push('违纪');
+  if (wn.indexOf('缺考')>=0 && reasons.indexOf('缺考')<0) reasons.push('缺考');
+  if (wn.indexOf('重修')>=0 && reasons.indexOf('重修')<0) reasons.push('重修');
+  var tv = ticeOf(s);
+  if (tv !== null && tv < 60) reasons.push('体测不及格');
+  return reasons;
+}
+function findQuota(gkey) {
+  var parts = gkey.split('|');
+  var grade = parts[0]||'', layer = parts[1]||'';
+  for (var qk in QUOTA_DATA) {
+    var qp = qk.split('|');
+    if (qp[0] && grade && qp[0] !== grade) continue;
+    if (qp[1] === layer) return QUOTA_DATA[qk];
+  }
+  return null;
+}
+var LV_NAME = {te:'特等', yi:'一等', er:'二等', san:'三等', none:'不参评'};
+var LV_CLS = {te:'lv-te', yi:'lv-yi', er:'lv-er', san:'lv-san', none:'lv-none'};
+function renderScholar() {
+  var tbody = document.getElementById('tbodyScholar');
+  var stats = document.getElementById('statsScholar');
+  var summary = document.getElementById('quotaSummary');
+  var ck = Object.keys(SEL_CLS);
+  var list = [];
+  if (ck.length) {
+    for (var i=0;i<ZC_POOL.length;i++){
+      var s = ZC_POOL[i];
+      if (SEL_GRADE && s.grade!==SEL_GRADE) continue;
+      if (SEL_MAJOR && s.major!==SEL_MAJOR) continue;
+      if (!SEL_CLS[clsNorm(s.cls)]) continue;
+      list.push(s);
+    }
+  }
+  if (!list.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7" class="empty-tip">暂无数据：请先上传综测表，或在上方选择年级/专业/班级</td></tr>';
+    if (summary) summary.innerHTML='';
+    if (stats) stats.textContent='';
+    return;
+  }
+  var groups = {};
+  for (var i=0;i<list.length;i++){
+    var k = scholarGroupKey(list[i]);
+    if (!groups[k]) groups[k]=[];
+    groups[k].push(list[i]);
+  }
+  var allRows = [];
+  var agg = {te:{get:0,cap:0}, yi:{get:0,cap:0}, er:{get:0,cap:0}, san:{get:0,cap:0}};
+  var candRank = {te:0, yi:1, er:2, san:3};
+  for (var k in groups) {
+    var g = groups[k].slice().sort(function(a,b){ return (b.comp||0)-(a.comp||0); });
+    var N = g.length;
+    var quota = findQuota(k);
+    if (quota) { agg.te.cap+=quota.te||0; agg.yi.cap+=quota.yi||0; agg.er.cap+=quota.er||0; agg.san.cap+=quota.san||0; }
+    for (var i=0;i<g.length;i++){
+      var s = g[i];
+      s._rank = i+1; s._pct = (i+1)/N;
+      var deny = scholarDenied(s);
+      s._deny = deny;
+      if (deny.length) { s._lv='none'; s._cand=''; s._lvReason=deny.join('、'); continue; }
+      var gpa = s.gpa||0;
+      var tv = ticeOf(s);
+      var ticeOk = (tv===null || tv>=75);
+      if (s._pct<=0.20 && gpa>=85 && ticeOk) s._cand='te';
+      else if (s._pct<=0.30 && gpa>=80 && ticeOk) s._cand='yi';
+      else if (s._pct<=0.40 && gpa>=75) s._cand='er';
+      else if (s._pct<=0.50 && gpa>=70) s._cand='san';
+      else s._cand='';
+      s._lv=''; s._lvReason='';
+    }
+    if (quota) {
+      var pool = [];
+      for (var i=0;i<g.length;i++){ if (!g[i]._deny.length && g[i]._cand) pool.push(g[i]); }
+      var levels = ['te','yi','er','san'];
+      var caps = {te:quota.te||0, yi:quota.yi||0, er:quota.er||0, san:quota.san||0};
+      var remaining = pool.slice();
+      for (var li=0; li<levels.length; li++){
+        var lv = levels[li];
+        var cap = caps[lv];
+        var got = 0; var rest = [];
+        for (var ri=0; ri<remaining.length; ri++){
+          var st = remaining[ri];
+          if (got < cap && candRank[st._cand] <= li) {
+            st._lv = lv; st._lvReason = '名额内'; got++;
+          } else { rest.push(st); }
+        }
+        remaining = rest;
+        agg[lv].get += got;
+      }
+      for (var ri=0; ri<remaining.length; ri++){
+        remaining[ri]._lv = 'none';
+        remaining[ri]._lvReason = '名额已满或未达门槛';
+      }
+    } else {
+      for (var i=0;i<g.length;i++){
+        var s = g[i];
+        if (s._deny.length) continue;
+        if (s._cand) { s._lv = s._cand; s._lvReason = '按比例门槛（未配置名额）'; }
+        else { s._lv='none'; s._lvReason='未达门槛'; }
+      }
+    }
+    for (var i=0;i<g.length;i++) allRows.push(g[i]);
+  }
+  /* 汇总卡片 */
+  if (summary) {
+    var hasCap = (agg.te.cap+agg.yi.cap+agg.er.cap+agg.san.cap) > 0;
+    function card(cls, name, get, cap) {
+      var capTxt = hasCap ? ('名额 '+cap) : '—';
+      return '<div class="q-card '+cls+'"><div class="q-lv">'+name+'</div><div class="q-num">'+get+'</div><div class="q-of">'+capTxt+'</div></div>';
+    }
+    summary.innerHTML = card('q-te','特等奖学金',agg.te.get,agg.te.cap)
+      + card('q-yi','一等奖学金',agg.yi.get,agg.yi.cap)
+      + card('q-er','二等奖学金',agg.er.get,agg.er.cap)
+      + card('q-san','三等奖学金',agg.san.get,agg.san.cap)
+      + (hasCap ? '' : '<div class="q-card q-none"><div class="q-lv">名额表</div><div class="q-num">未上传</div><div class="q-of">按比例门槛预测</div></div>');
+  }
+  if (stats) stats.textContent = '共 '+allRows.length+' 人' + (QUOTA_LOADED ? '（已加载名额表）' : '（未加载名额表，按比例门槛预测）');
+  /* 表格：按等级排序，同等级按 comp 降序 */
+  var lvOrder = {te:0, yi:1, er:2, san:3, none:4};
+  allRows.sort(function(a,b){
+    var oa = lvOrder[a._lv]!=null?lvOrder[a._lv]:4;
+    var ob = lvOrder[b._lv]!=null?lvOrder[b._lv]:4;
+    if (oa!==ob) return oa-ob;
+    return (b.comp||0)-(a.comp||0);
+  });
+  var html = '';
+  for (var i=0;i<allRows.length;i++){
+    var s = allRows[i];
+    var lv = s._lv||'none';
+    var tv = ticeOf(s);
+    var reasonHtml = '';
+    if (lv==='none') {
+      reasonHtml = '<span class="warn">'+esc(s._lvReason||'')+'</span>';
+    } else {
+      reasonHtml = '<span class="ok">综测前'+Math.round(s._pct*100)+'%｜智育'+(s.gpa||0).toFixed(1)+'</span>';
+      if (tv===null && (lv==='te'||lv==='yi')) reasonHtml += ' <span class="warn">体测待核实</span>';
+      if (lv==='te'||lv==='yi') reasonHtml += ' <span class="warn">四级≥425待核实</span>';
+      if (s._lvReason && s._lvReason!=='名额内' && s._lvReason!=='按比例门槛（未配置名额）') reasonHtml += '｜'+esc(s._lvReason);
+    }
+    html += '<tr data-name="'+esc(s.name)+'" data-stid="'+esc(s.stid||'')+'">'
+      + '<td><span class="lv-badge '+LV_CLS[lv]+'">'+LV_NAME[lv]+'</span></td>'
+      + '<td class="cell-name">'+esc(s.name)+'</td>'
+      + '<td class="cell-cls">'+esc(s.cls)+'</td>'
+      + '<td class="cell-score">'+((s.comp==null)?'—':s.comp.toFixed(2))+'</td>'
+      + '<td class="cell-score">'+((s.gpa==null)?'—':s.gpa.toFixed(2))+'</td>'
+      + '<td>'+(tv===null?'—':tv)+'</td>'
+      + '<td class="judge-reason">'+reasonHtml+'</td>'
+      + '</tr>';
+  }
+  tbody.innerHTML = html;
+  applySearchHighlight();
+}
+function parseQuotaWorkbook(wb) {
+  var ws = wb.Sheets[wb.SheetNames[0]];
+  var data = XLSX.utils.sheet_to_json(ws, {header:1});
+  var majorCol = -1, gradeCol = -1, teCol = -1, yiCol = -1, erCol = -1, sanCol = -1;
+  var majorRow = -1, dataStart = -1;
+  for (var r=0; r<Math.min(data.length,30); r++){
+    var row = data[r]||[];
+    for (var c=0;c<row.length;c++){
+      var v = String(row[c]||'').trim();
+      if (v.indexOf('专业名称')>=0 && majorCol<0) { majorCol=c; majorRow=r; }
+    }
+  }
+  if (majorCol<0) return {ok:false, msg:'未找到专业列'};
+  for (var r=majorRow; r<Math.min(data.length, majorRow+4); r++){
+    var row2 = data[r]||[];
+    for (var c2=0;c2<row2.length;c2++){
+      var v2 = String(row2[c2]||'').trim();
+      if (v2.indexOf('年级')>=0) gradeCol=c2;
+      if (v2.indexOf('特等')>=0) teCol=c2;
+      if (v2.indexOf('一等')>=0) yiCol=c2;
+      if (v2.indexOf('二等')>=0) erCol=c2;
+      if (v2.indexOf('三等')>=0) sanCol=c2;
+    }
+    if (gradeCol>=0 && teCol>=0) { dataStart=r+1; break; }
+  }
+  if (gradeCol<0 || teCol<0) return {ok:false, msg:'未找到年级/名额列'};
+  var q = {};
+  for (var r=dataStart; r<data.length; r++){
+    var row = data[r]||[];
+    var major = String(row[majorCol]||'').trim();
+    var grade = String(row[gradeCol]||'').trim();
+    if (!major || !grade) continue;
+    if (major.indexOf('合计')>=0) continue;
+    var gm = grade.match(/(20\d{2}|\d{2})/);
+    var g = gm ? (gm[1].length===2 ? '20'+gm[1] : gm[1])+'级' : grade;
+    var layer = (major.indexOf('专升本')>=0) ? '专升本' : '本';
+    var key = g + '|' + layer;
+    q[key] = { te: toNum(row[teCol])||0, yi: toNum(row[yiCol])||0, er: toNum(row[erCol])||0, san: toNum(row[sanCol])||0 };
+  }
+  var n = Object.keys(q).length;
+  if (!n) return {ok:false, msg:'名额表未解析到有效行'};
+  return {ok:true, quota:q, count:n};
+}
+
+function bindQuotaUpload() {
+  var inp = document.getElementById('fileQuota');
+  if (!inp) return;
+  inp.addEventListener('change', function(e){
+    var f = e.target.files && e.target.files[0];
+    if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      try {
+        var wb = XLSX.read(new Uint8Array(ev.target.result), {type:'array'});
+        var res = parseQuotaWorkbook(wb);
+        var msg = document.getElementById('updateMsg');
+        if (res.ok) {
+          QUOTA_DATA = res.quota;
+          QUOTA_LOADED = true;
+          if (msg) msg.textContent = '名额表解析成功：'+res.count+' 个专业/年级组合已加载';
+          renderAll();
+        } else {
+          if (msg) msg.textContent = '名额表解析失败：'+res.msg;
+        }
+      } catch (err) {
+        var msg2 = document.getElementById('updateMsg');
+        if (msg2) msg2.textContent = '名额表读取失败：'+(err.message||err);
+      }
+    };
+    reader.readAsArrayBuffer(f);
+  });
 }
 
 /* ---------- 七、搜索 ---------- */
@@ -2501,25 +2820,30 @@ function setMode(m) {
   MODE = m;
   document.getElementById('modeZy').className = 'mode-tab' + (m === 'zy' ? ' on' : '');
   document.getElementById('modeZc').className = 'mode-tab' + (m === 'zc' ? ' on' : '');
+  var btnSch = document.getElementById('modeScholar');
+  if (btnSch) { btnSch.className = 'mode-tab' + (m === 'scholar' ? ' on' : ''); }
   var boards = document.getElementById('boards');
   boards.className = 'boards' + (m === 'zc' ? ' dual' : '');
   document.body.classList.toggle('mode-zc', m === 'zc');
   document.getElementById('boardC').classList.toggle('hidden', m !== 'zc');
+  var bS = document.getElementById('boardScholar');
+  if (bS) { bS.classList.toggle('hidden', m !== 'scholar'); }
   sortStateG = { asc: false, touched: false };
   sortStateC = { asc: false, touched: false };
   /* 切换标签时按模式自己的视图偏好加载 */
-  var mView = (m === 'zy') ? ZY_VIEW : ZC_VIEW;
+  var effM = (m === 'scholar') ? 'zc' : m;
+  var mView = (effM === 'zy') ? ZY_VIEW : ZC_VIEW;
   if (mView === 'local') {
-    var lp = loadLocalSnapshot(m);
+    var lp = loadLocalSnapshot(effM);
     if (lp && lp.students && lp.students.length) {
-      if (m === 'zy') { ZY_POOL = lp.students.slice(); ZY_SOURCE = 'uploaded'; }
+      if (effM === 'zy') { ZY_POOL = lp.students.slice(); ZY_SOURCE = 'uploaded'; }
       else { ZC_POOL = lp.students.slice(); ZC_SOURCE = 'uploaded'; }
     } else {
-      if (m === 'zy') { ZY_POOL = ZY_BUILTIN.slice(); ZY_SOURCE = 'builtin'; }
+      if (effM === 'zy') { ZY_POOL = ZY_BUILTIN.slice(); ZY_SOURCE = 'builtin'; }
       else { ZC_POOL = (ZC_BUILTIN && ZC_BUILTIN.students) ? ZC_BUILTIN.students.slice() : []; ZC_SOURCE = 'builtin'; }
     }
   } else {
-    if (m === 'zy') { ZY_POOL = ZY_BUILTIN.slice(); ZY_SOURCE = 'builtin'; }
+    if (effM === 'zy') { ZY_POOL = ZY_BUILTIN.slice(); ZY_SOURCE = 'builtin'; }
     else { ZC_POOL = (ZC_BUILTIN && ZC_BUILTIN.students) ? ZC_BUILTIN.students.slice() : []; ZC_SOURCE = 'builtin'; }
   }
   if (!applyModeSel(m)) { defaultSelFor(m); }
@@ -2550,6 +2874,9 @@ function bindSort(bid) {
 }
 function bindEvents() {
   document.getElementById('modeZy').addEventListener('click', function () { setMode('zy'); });
+  var btnSch = document.getElementById('modeScholar');
+  if (btnSch) { btnSch.addEventListener('click', function () { setMode('scholar'); }); }
+  bindQuotaUpload();
   document.getElementById('modeZc').addEventListener('click', function () { setMode('zc'); });
   document.getElementById('searchInput').addEventListener('input', applySearchHighlight);
   document.getElementById('searchGo').addEventListener('click', scrollToHit);
