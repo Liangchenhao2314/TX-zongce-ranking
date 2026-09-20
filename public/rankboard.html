@@ -334,6 +334,12 @@
 .judge-reason { font-size:12px; color:#5c6b80; line-height:1.5; }
 .judge-reason .warn { color:#c0392b; font-weight:600; }
 .judge-reason .ok { color:#2e7d32; }
+/* 规则配置区 */
+.rule-config { margin-top:12px; padding:12px 14px; background:#f7f9fc; border:1px solid #e2e8f0; border-radius:10px; }
+.rule-config-title { font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; }
+.rule-grid { display:flex; flex-direction:column; gap:6px; }
+.rule-grid label { font-size:12.5px; color:#475569; display:flex; align-items:center; flex-wrap:wrap; gap:4px; }
+.rule-grid input { width:56px; padding:3px 6px; border:1px solid #cbd5e1; border-radius:5px; font-size:12.5px; }
 
 
 .boards { display: block; max-width: 1280px; margin: 0 auto; }
@@ -459,6 +465,44 @@
           </label>
           <a class="tpl-link" href="#" id="quotaInfoLink">名额表按 专业/年级/各等级名额 自动解析</a>
         </div>
+        <div class="file-col">
+          <label class="file-label">
+            上传评定工作通知
+            <input type="file" id="fileRuleNotice" accept=".xlsx,.xls,.csv,.json,.doc,.docx,.pdf">
+          </label>
+          <a class="tpl-link" href="#" id="noticeInfoLink">存档备查，不参与计算</a>
+        </div>
+        <div class="file-col">
+          <label class="file-label">
+            上传特别说明及注意要点
+            <input type="file" id="fileRuleSpecial" accept=".xlsx,.xls,.csv,.json,.doc,.docx,.pdf">
+          </label>
+          <a class="tpl-link" href="#" id="specialInfoLink">存档备查，不参与计算</a>
+        </div>
+        <div class="file-col">
+          <label class="file-label">
+            上传评定办法
+            <input type="file" id="fileRuleMethod" accept=".xlsx,.xls,.csv,.json,.doc,.docx,.pdf">
+          </label>
+          <a class="tpl-link" href="#" id="methodInfoLink">存档备查，不参与计算</a>
+        </div>
+      </div>
+      <div class="rule-config" id="ruleConfig">
+        <div class="rule-config-title">奖学金评定规则（可按本学年实际修改，自动保存到本地）</div>
+        <div class="rule-grid">
+          <label>特等 综测前<input type="number" id="ruleTePct" value="20" min="1" max="100">% + 智育≥<input type="number" id="ruleTeGpa" value="85" min="0" max="100">分 + 体测≥<input type="number" id="ruleTeTice" value="75" min="0" max="100">
+          </label>
+          <label>一等 综测前<input type="number" id="ruleYiPct" value="30" min="1" max="100">% + 智育≥<input type="number" id="ruleYiGpa" value="80" min="0" max="100">分 + 体测≥<input type="number" id="ruleYiTice" value="75" min="0" max="100">
+          </label>
+          <label>二等 综测前<input type="number" id="ruleErPct" value="40" min="1" max="100">% + 智育≥<input type="number" id="ruleErGpa" value="75" min="0" max="100">
+          </label>
+          <label>三等 综测前<input type="number" id="ruleSanPct" value="50" min="1" max="100">% + 智育≥<input type="number" id="ruleSanGpa" value="70" min="0" max="100">
+          </label>
+          <label>体测不及格线 <input type="number" id="ruleTiceFail" value="60" min="0" max="100"> 分（低于此分一票否决）</label>
+          <label class="rule-special-label">本学年特殊说明（可直接输入文字，例如：综测70分以下不参评 / 专升本单独评定 / 某科目不计入等，仅作备注提示）</label>
+          <textarea id="ruleSpecialNote" rows="2" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;box-sizing:border-box;" placeholder="输入本学年特殊说明，保存后自动显示在榜单顶部"></textarea>
+        </div>
+      </div>
       </div>
       <div class="update-preview" id="updatePreview"></div>
       <div class="update-actions">
@@ -529,6 +573,7 @@
     <section class="board hidden" id="boardScholar">
       <div class="board-header">
         <div class="board-title" id="titleScholar">奖学金等级预测</div>
+<div class="scholar-note" id="scholarNote" style="display:none;margin:6px 0;padding:8px 12px;background:#fff8e1;border-left:3px solid #ffa000;border-radius:4px;font-size:12.5px;color:#795548;"></div>
         <div class="board-stats" id="statsScholar"></div>
       </div>
       <div class="quota-summary" id="quotaSummary"></div>
@@ -1668,6 +1713,36 @@ function renderAll() {
 /* ===== 奖学金预测 ===== */
 var QUOTA_DATA = {};
 var QUOTA_LOADED = false;
+var RULES = { te:{pct:0.20,gpa:85,tice:75}, yi:{pct:0.30,gpa:80,tice:75}, er:{pct:0.40,gpa:75,tice:null}, san:{pct:0.50,gpa:70,tice:null}, ticeFail:60, specialNote:'' };
+function loadRules() {
+  try {
+    var raw = localStorage.getItem('scholar_rules_v1');
+    if (raw) { var r = JSON.parse(raw); for (var k in r) { if (RULES[k]) { if (typeof r[k]==='object' && r[k]!==null) { for (var k2 in r[k]) { RULES[k][k2] = r[k][k2]; } } else { RULES[k] = r[k]; } } } }
+  } catch (e) {}
+  var set = function(id,v){ var el=document.getElementById(id); if(el) el.value=v; };
+  set('ruleTePct', Math.round(RULES.te.pct*100)); set('ruleTeGpa', RULES.te.gpa); set('ruleTeTice', RULES.te.tice);
+  set('ruleYiPct', Math.round(RULES.yi.pct*100)); set('ruleYiGpa', RULES.yi.gpa); set('ruleYiTice', RULES.yi.tice);
+  set('ruleErPct', Math.round(RULES.er.pct*100)); set('ruleErGpa', RULES.er.gpa);
+  set('ruleSanPct', Math.round(RULES.san.pct*100)); set('ruleSanGpa', RULES.san.gpa);
+  set('ruleTiceFail', RULES.ticeFail);
+  set('ruleSpecialNote', RULES.specialNote||'');
+}
+function saveRules() {
+  function num(id){ var el=document.getElementById(id); var v=parseFloat(el && el.value); return isNaN(v)?null:v; }
+  var tp=num('ruleTePct'), tg=num('ruleTeGpa'), tt=num('ruleTeTice');
+  var yp=num('ruleYiPct'), yg=num('ruleYiGpa'), yt=num('ruleYiTice');
+  var ep=num('ruleErPct'), eg=num('ruleErGpa');
+  var sp=num('ruleSanPct'), sg=num('ruleSanGpa');
+  var tf=num('ruleTiceFail');
+  if (tp!==null) RULES.te.pct=tp/100; if (tg!==null) RULES.te.gpa=tg; if (tt!==null) RULES.te.tice=tt;
+  if (yp!==null) RULES.yi.pct=yp/100; if (yg!==null) RULES.yi.gpa=yg; if (yt!==null) RULES.yi.tice=yt;
+  if (ep!==null) RULES.er.pct=ep/100; if (eg!==null) RULES.er.gpa=eg;
+  if (sp!==null) RULES.san.pct=sp/100; if (sg!==null) RULES.san.gpa=sg;
+  if (tf!==null) RULES.ticeFail=tf;
+  var snEl=document.getElementById('ruleSpecialNote');
+  if (snEl) RULES.specialNote=snEl.value;
+  try { localStorage.setItem('scholar_rules_v1', JSON.stringify(RULES)); } catch (e) {}
+}
 function gradeOf(s) {
   if (s && s.grade) { var gm = String(s.grade).match(/(20\d{2})/); return gm ? gm[1]+'级' : s.grade; }
   var cls = String((s && s.cls) || '');
@@ -1698,7 +1773,7 @@ function scholarDenied(s) {
   if (wn.indexOf('缺考')>=0 && reasons.indexOf('缺考')<0) reasons.push('缺考');
   if (wn.indexOf('重修')>=0 && reasons.indexOf('重修')<0) reasons.push('重修');
   var tv = ticeOf(s);
-  if (tv !== null && tv < 60) reasons.push('体测不及格');
+  if (tv !== null && tv < RULES.ticeFail) reasons.push('体测不及格');
   return reasons;
 }
 function findQuota(gkey) {
@@ -1757,10 +1832,10 @@ function renderScholar() {
       var gpa = s.gpa||0;
       var tv = ticeOf(s);
       var ticeOk = (tv===null || tv>=75);
-      if (s._pct<=0.20 && gpa>=85 && ticeOk) s._cand='te';
-      else if (s._pct<=0.30 && gpa>=80 && ticeOk) s._cand='yi';
-      else if (s._pct<=0.40 && gpa>=75) s._cand='er';
-      else if (s._pct<=0.50 && gpa>=70) s._cand='san';
+      if (s._pct<=RULES.te.pct && gpa>=RULES.te.gpa && (!RULES.te.tice || ticeOk)) s._cand='te';
+      else if (s._pct<=RULES.yi.pct && gpa>=RULES.yi.gpa && (!RULES.yi.tice || ticeOk)) s._cand='yi';
+      else if (s._pct<=RULES.er.pct && gpa>=RULES.er.gpa) s._cand='er';
+      else if (s._pct<=RULES.san.pct && gpa>=RULES.san.gpa) s._cand='san';
       else s._cand='';
       s._lv=''; s._lvReason='';
     }
@@ -1791,13 +1866,22 @@ function renderScholar() {
       for (var i=0;i<g.length;i++){
         var s = g[i];
         if (s._deny.length) continue;
-        if (s._cand) { s._lv = s._cand; s._lvReason = '按比例门槛（未配置名额）'; }
-        else { s._lv='none'; s._lvReason='未达门槛'; }
+        if (s._cand) {
+          s._lv = s._cand; s._lvReason = '按比例门槛（未配置名额）';
+          agg[s._cand].get += 1;
+        } else { s._lv='none'; s._lvReason='未达门槛'; }
       }
     }
     for (var i=0;i<g.length;i++) allRows.push(g[i]);
   }
   /* 汇总卡片 */
+  var noteEl = document.getElementById('ruleSpecialNote');
+  var scholarNote = document.getElementById('scholarNote');
+  if (scholarNote) {
+    var snv = (RULES.specialNote || '').trim();
+    scholarNote.textContent = snv ? ('本学年特殊说明：' + snv) : '';
+    scholarNote.style.display = snv ? '' : 'none';
+  }
   if (summary) {
     var hasCap = (agg.te.cap+agg.yi.cap+agg.er.cap+agg.san.cap) > 0;
     function card(cls, name, get, cap) {
@@ -1829,7 +1913,7 @@ function renderScholar() {
       reasonHtml = '<span class="warn">'+esc(s._lvReason||'')+'</span>';
     } else {
       reasonHtml = '<span class="ok">综测前'+Math.round(s._pct*100)+'%｜智育'+(s.gpa||0).toFixed(1)+'</span>';
-      if (tv===null && (lv==='te'||lv==='yi')) reasonHtml += ' <span class="warn">体测待核实</span>';
+      if (tv===null && RULES[lv] && RULES[lv].tice) reasonHtml += ' <span class="warn">体测待核实</span>';
       if (lv==='te'||lv==='yi') reasonHtml += ' <span class="warn">四级≥425待核实</span>';
       if (s._lvReason && s._lvReason!=='名额内' && s._lvReason!=='按比例门槛（未配置名额）') reasonHtml += '｜'+esc(s._lvReason);
     }
@@ -1890,6 +1974,34 @@ function parseQuotaWorkbook(wb) {
   return {ok:true, quota:q, count:n};
 }
 
+function bindRuleInputs() {
+  var ids = ['ruleTePct','ruleTeGpa','ruleTeTice','ruleYiPct','ruleYiGpa','ruleYiTice','ruleErPct','ruleErGpa','ruleSanPct','ruleSanGpa','ruleTiceFail'];
+  for (var i=0;i<ids.length;i++){
+    var el = document.getElementById(ids[i]);
+    if (el) { el.addEventListener('change', function(){ saveRules(); renderAll(); }); el.addEventListener('input', function(){ saveRules(); }); }
+  }
+  var sn = document.getElementById('ruleSpecialNote');
+  if (sn) { sn.addEventListener('input', function(){ RULES.specialNote = sn.value; try{localStorage.setItem('scholar_rules_v1', JSON.stringify(RULES));}catch(e){} renderAll(); }); }
+}
+function bindOtherRuleUploads() {
+  var map = [['fileRuleNotice','noticeInfoLink','评定通知'], ['fileRuleSpecial','specialInfoLink','特别说明'], ['fileRuleMethod','methodInfoLink','评定办法']];
+  for (var i=0;i<map.length;i++){
+    var inp = document.getElementById(map[i][0]);
+    var link = document.getElementById(map[i][1]);
+    if (inp) {
+      inp.addEventListener('change', function(e){
+        var f = e.target.files && e.target.files[0];
+        if (!f) return;
+        var lbl = this.id;
+        var linkEl = document.getElementById(lbl==='fileRuleNotice'?'noticeInfoLink':(lbl==='fileRuleSpecial'?'specialInfoLink':'methodInfoLink'));
+        if (linkEl) linkEl.textContent = '已存档：' + f.name;
+        var msg = document.getElementById('updateMsg');
+        if (msg) msg.textContent = map_name(lbl) + '已存档：' + f.name + '（仅备查，不参与计算）';
+      });
+    }
+  }
+}
+function map_name(id){ return id==='fileRuleNotice'?'评定通知':(id==='fileRuleSpecial'?'特别说明':'评定办法'); }
 function bindQuotaUpload() {
   var inp = document.getElementById('fileQuota');
   if (!inp) return;
@@ -2877,6 +2989,9 @@ function bindEvents() {
   var btnSch = document.getElementById('modeScholar');
   if (btnSch) { btnSch.addEventListener('click', function () { setMode('scholar'); }); }
   bindQuotaUpload();
+  bindRuleInputs();
+  bindOtherRuleUploads();
+  loadRules();
   document.getElementById('modeZc').addEventListener('click', function () { setMode('zc'); });
   document.getElementById('searchInput').addEventListener('input', applySearchHighlight);
   document.getElementById('searchGo').addEventListener('click', scrollToHit);
